@@ -1,5 +1,8 @@
-module Text.Devanagari.Phonemic(Phoneme(..))
+module Text.Devanagari.Phonemic(Phoneme(..), vowels, consonants)
 where
+
+import Data.Set (Set)
+import qualified Data.Set as S
 
 data Phoneme = A
              | AA
@@ -50,5 +53,10 @@ data Phoneme = A
              | RetS             -- retroflex sibilant
              | S
              | H
-               deriving (Eq, Show, Ord)
+               deriving (Eq, Show, Ord, Enum)
 
+vowels :: Set Phoneme
+vowels = S.fromList [A .. AU]
+
+consonants :: Set Phoneme
+consonants = S.fromList [K .. H]
