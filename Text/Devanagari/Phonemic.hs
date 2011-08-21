@@ -1,54 +1,54 @@
 module Text.Devanagari.Phonemic(Phoneme(..))
 where
 
-data Phoneme = AKara
-             | AAKara
-             | IKara
-             | IIKara
-             | UKara
-             | UUKara
-             | VocRKara         -- short vocalic R
-             | VocRRKara        -- long vocalic R
-             | VocLKara         -- short vocalic L
-             | VocLLKara        -- long vocalic L
-             | EKara
-             | AIKara
-             | OKara
-             | AUKara
+data Phoneme = A
+             | AA
+             | I
+             | II
+             | U
+             | UU
+             | VocR             -- short vocalic R
+             | VocRR            -- long vocalic R
+             | VocL             -- short vocalic L
+             | VocLL            -- long vocalic L
+             | E
+             | AI
+             | O
+             | AU
              | Visarga
              | Anusvara
-             | KaKara
-             | KhaKara
-             | GaKara
-             | GhaKara
-             | NgaKara          -- guttural (velar) nasal
-             | CaKara
-             | ChaKara
-             | JaKara
-             | JhaKara
-             | PalNaKara        -- palatal nasal
-             | RetTaKara        -- retroflex (cerebral) consonant
-             | RetThaKara
-             | RetDaKara
-             | RetDhaKara
-             | RetNaKara
-             | TaKara
-             | ThaKara
-             | DaKara
-             | DhaKara
-             | NaKara
-             | PaKara
-             | PhaKara
-             | BaKara
-             | BhaKara
-             | MaKara
-             | YaKara
-             | Repha
-             | LaKara
-             | VaKara
-             | PalSaKara        -- palatal sibilant
-             | RetSaKara        -- retroflex sibilant
-             | SaKara
-             | HaKara
+             | K
+             | Kh
+             | G
+             | Gh
+             | Ng               -- guttural (velar) nasal
+             | C
+             | Ch
+             | J
+             | Jh
+             | PalN             -- palatal nasal
+             | RetT             -- retroflex (cerebral) consonant
+             | RetTh
+             | RetD
+             | RetDh
+             | RetN
+             | T
+             | Th
+             | D
+             | Dh
+             | N
+             | P
+             | Ph
+             | B
+             | Bh
+             | M
+             | Y
+             | R
+             | L
+             | V
+             | PalS             -- palatal sibilant
+             | RetS             -- retroflex sibilant
+             | S
+             | H
                deriving (Eq, Show, Ord)
 
