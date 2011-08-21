@@ -1,11 +1,13 @@
 module Text.Devanagari.Translit()
        where
 
+import Data.Trie (Trie)
+import qualified Data.Set as S
 import qualified Data.Trie as T
 import qualified Text.Devanagari.Phonemic as P
 import qualified Text.Devanagari.Unicode as U
 
-type PhonemeTrie = T.Trie Char [P.Phoneme]
+type PhonemeTrie = Trie Char [P.Phoneme]
 
 -- interface options considered:
 -- 1) unicodeToPhonemic :: String -> Maybe [[P.Phoneme]]
@@ -25,14 +27,17 @@ type PhonemeTrie = T.Trie Char [P.Phoneme]
 -- Not only is this a loss of modularity & generality, but it's a pain, and I
 -- don't know enough to predict the definition of whitespace yet.
 
-toPhonemic :: String -> Maybe ([P.Phoneme], String)
-toPhonemic [] = Just ([], [])
-toPhonemic s =
+-- XXX rename unicodeToPhonemic -> fromUnicode
+-- so we'll have {to,from}{Unicode,Velthuis}
+
+unicodeToPhonemic :: String -> Maybe ([P.Phoneme], String)
+unicodeToPhonemic [] = Just ([], [])
+unicodeToPhonemic s =
   do (s', phonemes) <- T.matchPrefix unicodeToPhonemicTrie s
-     (phonemes', rest) <- toPhonemic s'
+     (phonemes', rest) <- unicodeToPhonemic s'
      return (phonemes ++ phonemes', rest)
 
-unicodeToPhonemicTrie :: T.Trie Char [P.Phoneme]
+unicodeToPhonemicTrie :: Trie Char [P.Phoneme]
 unicodeToPhonemicTrie =
   foldr addEntries T.empty (vowelEntries : consonantEntries)
   where addEntries :: [(String, [P.Phoneme])] -> PhonemeTrie -> PhonemeTrie
@@ -130,3 +135,22 @@ makeConsonantEntry :: Char -> P.Phoneme -> (Char, P.Phoneme)
                       -> (String, [P.Phoneme])
 makeConsonantEntry consonant consPhoneme (vowel, vowelPhoneme) =
   ([consonant, vowel], [consPhoneme, vowelPhoneme])
+
+phonemicToUnicodeTrie :: Trie P.Phoneme String
+phonemicToUnicodeTrie =
+  T.fromList [([P.A], [U.initA]),
+              ([P.AA], [U.initAA]),
+              ([P.I], [U.initI]),
+              ([P.II], [U.initII]),
+              ([P.U], [U.initU]),
+              ([P.UU], [U.initUU]),
+              ([P.VocR], [U.initVocR]),
+              ([P.VocRR], [U.initVocRR]),
+              ([P.VocL], [U.initVocL]),
+              ([P.VocLL], [U.initVocL]),
+              ([P.E], [U.initE]),
+              ([P.AI], [U.initAI]),
+              ([P.O], [U.initO]),
+              ([P.AU], [U.initAU]),
+              ([P.Visarga], [U.visarga]),
+              ([P.Anusvara], [U.anusvara])]
