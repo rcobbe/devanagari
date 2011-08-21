@@ -1,0 +1,25 @@
+Name:           devanagari
+Version:        0.1
+Cabal-Version:  >= 1.2
+Author:         Richard Cobbe
+Synopsis:       Defines multiple representations of Devanagari text and conversions between them
+Build-Type:     Simple
+License:        AllRightsReserved
+Copyright:      (c) 2011 Richard Cobbe
+Maintainer:     cobbe@ccs.neu.edu
+Stability:      alpha
+Category:       Data
+Description:    This package provides a library that exports multiple representations of Devanagari text (internal, Unicode, modified Velthuis) and converts back and converts back and forth between them.  The package also includes a binary that performs the conversion for use with other languages.
+
+Library
+  Build-Depends:
+    base >= 4 && < 5,
+    Trie >= 0.2
+  Exposed-Modules:
+    Text.Devanagari
+
+Executable velthuis
+  Main-Is:          Main.hs
+  Build-Depends:    base >= 4 && < 5
+  Other-Modules:    Text.Devanagari
+    
