@@ -56,7 +56,7 @@ data Phoneme = A
                deriving (Eq, Show, Ord, Enum)
 
 vowels :: Set Phoneme
-vowels = S.fromList [A .. AU]
+vowels = S.fromAscList [A .. AU]
 
 consonants :: Set Phoneme
-consonants = S.fromList [K .. H]
+consonants = S.fromAscList [K .. H]
