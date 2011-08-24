@@ -1,14 +1,4 @@
-module Text.Devanagari.Unicode(
-  initA, initAA, combAA, initI, combI, initII, combII, initU, combU, initUU,
-  combUU, initVocR, combVocR, initVocRR, combVocRR, initVocL, combVocL,
-  initVocLL, combVocLL, initE, combE, initAI, combAI, initO, combO, initAU,
-  combAU, visarga, anusvara, ka, kha, ga, gha, velarNa, ca, cha, ja, jha,
-  palatalNa, retroTa, retroTha, retroDa, retroDha, retroNa, ta, tha, da, dha,
-  na, pa, pha, ba, bha, ma, ya, ra, la, va, palatalSa, retroSa, sa, ha, virama,
-  danda, doubleDanda,
-  toPhonemic,
-  fromPhonemic
-  )
+module Text.Devanagari.Unicode(toPhonemic, fromPhonemic)
 where
 
 import Data.Map (Map)
