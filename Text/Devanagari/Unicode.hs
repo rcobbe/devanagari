@@ -233,7 +233,7 @@ fromPhonemicAfterVowel [] = Just []
 fromPhonemicAfterVowel (P.Visarga : ps) =
   mcons (Just visarga) (fromPhonemicAfterVowel ps)
 fromPhonemicAfterVowel (P.Anusvara : ps) =
-  mcons (Just anusvara) (fromPhonemicAFterVowel ps)
+  mcons (Just anusvara) (fromPhonemicAfterVowel ps)
 fromPhonemicAfterVowel (p : ps)
   | p `S.member` P.vowels =
     -- hiatus is rare but possible
