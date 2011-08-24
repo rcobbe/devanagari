@@ -4,6 +4,7 @@ where
 import Data.Set (Set)
 import qualified Data.Set as S
 
+-- | Phonemic representation of Sanskrit, in standard lexicographic ordering.
 data Phoneme = A
              | AA
              | I
