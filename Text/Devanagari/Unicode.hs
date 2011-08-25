@@ -219,58 +219,46 @@ consonantsToPhonemic = [(ka, P.K),
                         (sa, P.S),
                         (ha, P.H)]
 
+-- can't just parameterize main fromPhonemic loop over the map, since we need
+-- to handle viramas differently.
+
 fromPhonemic :: [P.Phoneme] -> Maybe String
-fromPhonemic [] = Just []
-fromPhonemic (p:ps)
-  | p `S.member` P.vowels =
-    mcons (M.lookup p initVowelMap) (fromPhonemicAfterVowel ps)
-  | p `S.member` P.consonants =
-      mcons (M.lookup p consonantMap) (fromPhonemicAfterConsonant ps)
-  | otherwise = Nothing
+fromPhonemic ps = fromPhonemicWithMap ps afterVowelMap
 
-fromPhonemicAfterVowel :: [P.Phoneme] -> Maybe String
-fromPhonemicAfterVowel [] = Just []
-fromPhonemicAfterVowel (P.Visarga : ps) =
-  mcons (Just visarga) (fromPhonemicAfterVowel ps)
-fromPhonemicAfterVowel (P.Anusvara : ps) =
-  mcons (Just anusvara) (fromPhonemicAfterVowel ps)
-fromPhonemicAfterVowel (p : ps)
-  | p `S.member` P.vowels =
-    -- hiatus is rare but possible
-    mcons (M.lookup p initVowelMap) (fromPhonemicAfterVowel ps)
-  | p `S.member` P.consonants =
-      mcons (M.lookup p consonantMap) (fromPhonemicAfterConsonant ps)
-  | otherwise = Nothing
+-- assumes that P.vowels, P.consonants in domain of pmap
+fromPhonemicWithMap :: [P.Phoneme] -> Map P.Phoneme String -> Maybe String
+fromPhonemicWithMap [] _ = Just []
+fromPhonemicWithMap [p] pmap
+  | p `S.member` P.consonants = Just (pmap M.! p ++ [virama])
+  | otherwise = M.lookup p pmap
+fromPhonemicWithMap (p:ps) pmap =
+  do u <- M.lookup p pmap
+     us <- fromPhonemicWithMap ps (nextState p)
+     return (u ++ us)
 
-fromPhonemicAfterConsonant :: [P.Phoneme] -> Maybe String
-fromPhonemicAfterConsonant [] = Just []
-fromPhonemicAfterConsonant (p : ps)
-  | p `S.member` P.vowels =
-    do vowelStr <- M.lookup p combiningVowelMap
-       rest <- fromPhonemicAfterVowel ps
-       return (vowelStr ++ rest)
-  | p `S.member` P.consonants =
-      do c <- M.lookup p consonantMap
-         cs <- fromPhonemicAfterConsonant ps
-         return (visarga : c : cs)
-  | otherwise = Nothing
+nextState :: P.Phoneme -> Map P.Phoneme String
+nextState P.Visarga = afterVowelMap
+nextState p
+  | p `S.member` P.vowels = afterVowelMap
+  | p `S.member` P.consonants = afterConsonantMap
+  | otherwise = M.empty
 
-initVowelMap :: Map P.Phoneme Char
+initVowelMap :: Map P.Phoneme String
 initVowelMap =
-  M.fromAscList [(P.A, initA),
-                 (P.AA, initAA),
-                 (P.I, initI),
-                 (P.II, initII),
-                 (P.U, initU),
-                 (P.UU, initUU),
-                 (P.VocR, initVocR),
-                 (P.VocRR, initVocRR),
-                 (P.VocL, initVocL),
-                 (P.VocLL, initVocLL),
-                 (P.E, initE),
-                 (P.AI, initAI),
-                 (P.O, initO),
-                 (P.AU, initAU)]
+  M.fromAscList [(P.A, [initA]),
+                 (P.AA, [initAA]),
+                 (P.I, [initI]),
+                 (P.II, [initII]),
+                 (P.U, [initU]),
+                 (P.UU, [initUU]),
+                 (P.VocR, [initVocR]),
+                 (P.VocRR, [initVocRR]),
+                 (P.VocL, [initVocL]),
+                 (P.VocLL, [initVocLL]),
+                 (P.E, [initE]),
+                 (P.AI, [initAI]),
+                 (P.O, [initO]),
+                 (P.AU, [initAU])]
 
 combiningVowelMap :: Map P.Phoneme String
 combiningVowelMap =
@@ -289,9 +277,25 @@ combiningVowelMap =
                  (P.O, [combO]),
                  (P.AU, [combAU])]
 
-consonantMap :: Map P.Phoneme Char
+-- map from phonemes to most straightforward (single char) unicode equivalent.
+-- That is, maps P.Kha to unicode for syllable /kha/, no virama or combining
+-- vowels.
+consonantMap :: Map P.Phoneme String
 consonantMap =
-  M.fromAscList (map (\(x,y) -> (y,x)) consonantsToPhonemic)
+  M.fromAscList (map (\(x,y) -> (y,[x])) consonantsToPhonemic)
+
+-- map used to translate phonemes that appear initially or after a vowel.  Bare
+-- consonants (no leading virama) and initial vowel forms (for hiatus, which is
+-- rare but possible), plus visarga.
+afterVowelMap :: Map P.Phoneme String
+afterVowelMap =
+  M.insert P.Visarga [visarga] (consonantMap `M.union` initVowelMap)
+
+-- map used to translate phonemes that appear after a consonant.  Stick a
+-- virama before consonants, and use combining vowel forms.
+afterConsonantMap :: Map P.Phoneme String
+afterConsonantMap =
+  (M.map (virama:) consonantMap) `M.union` combiningVowelMap
 
 mcons :: Maybe a -> Maybe [a] -> Maybe [a]
 mcons Nothing _ = Nothing
