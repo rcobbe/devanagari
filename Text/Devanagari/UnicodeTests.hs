@@ -31,6 +31,14 @@ tests =
    (TestList
     ["Unicode to Phonemic" ~:
      TestList (map mkUtoPTest testSpecs),
+     "toPhonemic error cases" ~:
+     TestList [
+       "empty input" ~: U.toPhonemic "" ~?= Nothing,
+       "no devanagari prefix" ~: U.toPhonemic "foo" ~?= Nothing,
+       "non-devanagari suffix" ~:
+       U.toPhonemic "कूपेषुfoo" ~?=
+       Just ([P.K, P.UU, P.P, P.E, P.RetS, P.U], "foo")
+       ],
      "Phonemic to Unicode" ~:
      TestList (map mkPtoUTest testSpecs)]))
 
