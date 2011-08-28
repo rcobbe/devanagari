@@ -15,7 +15,16 @@ testSpecs =
    ("CV*C, with implicit vowel", "वनम्", [P.V, P.A, P.N, P.A, P.M]),
    ("with samyoga", "कूपस्य", [P.K, P.UU, P.P, P.A, P.S, P.Y, P.A]),
    ("initial vowel with samyoga", "अश्वेषु",
-    [P.A, P.PalS, P.V, P.E, P.RetS, P.U])]
+    [P.A, P.PalS, P.V, P.E, P.RetS, P.U]),
+   ("medial & final visargas", "दुःखयोः",
+    [P.D, P.U, P.Visarga, P.Kh, P.A, P.Y, P.O, P.Visarga]),
+   ("medial anusvara after a", "संस्कृत्",
+    [P.S, P.A, P.Anusvara, P.S, P.K, P.VocR, P.T]),
+   ("medial anusvara after written vowel", "सिंह",
+    [P.S, P.I, P.Anusvara, P.H, P.A]),
+   ("vowel hiatus", "दउत", [P.D, P.A, P.U, P.T, P.A]),
+   ("final samyoga", "रक्ष्", [P.R, P.A, P.K, P.RetS])
+   ]
 
 tests =
   (TestLabel "Text.Devanagari.Unicode tests"
