@@ -238,6 +238,7 @@ fromPhonemicWithMap (p:ps) pmap =
 
 nextState :: P.Phoneme -> Map P.Phoneme String
 nextState P.Visarga = afterVowelMap
+nextState P.Anusvara = afterVowelMap
 nextState p
   | p `S.member` P.vowels = afterVowelMap
   | p `S.member` P.consonants = afterConsonantMap
@@ -289,7 +290,9 @@ consonantMap =
 -- rare but possible), plus visarga.
 afterVowelMap :: Map P.Phoneme String
 afterVowelMap =
-  M.insert P.Visarga [visarga] (consonantMap `M.union` initVowelMap)
+  M.insert P.Visarga [visarga]
+  (M.insert P.Anusvara [anusvara]
+   (consonantMap `M.union` initVowelMap))
 
 -- map used to translate phonemes that appear after a consonant.  Stick a
 -- virama before consonants, and use combining vowel forms.
