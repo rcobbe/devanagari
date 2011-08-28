@@ -107,14 +107,30 @@ doubleDanda = '\x0965'
 -- prefix is convertible, returns Nothing.
 toPhonemic :: String -> Maybe ([P.Phoneme], String)
 toPhonemic [] = Nothing
-toPhonemic s = toPhonemicNonempty s
-
--- Conversion; assumes input not empty.
-toPhonemicNonempty [] = Just ([], [])
-toPhonemicNonempty s =
+toPhonemic s =
+  -- Maybe monad
   do (s', phonemes) <- T.matchPrefix unicodeTrie s
-     (phonemes', rest) <- toPhonemicNonempty s'
+     let (phonemes', rest) = toPhonemicMedial s'
      return (phonemes ++ phonemes', rest)
+
+-- XXX change phonemic representation, so visarga, anusvara are annotations on
+-- vowels, and we only allow one per vowel.  Thus, [P.Phoneme] can't violate
+-- this invariant, and we don't have to worry about extra error conditions.
+-- also, does it make sense to conflate the input parsing (devanagari vs
+-- non-devanagari unicode) with the translation?  Might be easier to factor for
+-- upper levels if we separate the two.  One function splits a string into a
+-- list of strings, which alternate: devanagari, not, devanagari, not, ...  (Is
+-- there a good typed representation that enforces the alternation?)
+
+-- Conversion; assumes that we've converted at least one phoneme.
+toPhonemicMedial :: String -> ([P.Phoneme], String)
+toPhonemicMedial [] = ([], [])
+toPhonemicMedial s =
+  case (T.matchPrefix unicodeTrie s) of
+    Just (s', phonemes) ->
+      let (phonemes', rest) = toPhonemicMedial s'
+      in (phonemes ++ phonemes', rest)
+    Nothing -> ([], s)
 
 -- trie for conversion, indexed by unicode
 unicodeTrie :: Trie Char [P.Phoneme]
