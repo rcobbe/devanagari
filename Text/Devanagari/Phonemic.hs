@@ -1,26 +1,27 @@
-module Text.Devanagari.Phonemic(Phoneme(..), vowels, consonants)
+module Text.Devanagari.Phonemic(Phoneme(..), VowelMod(..))
 where
 
-import Data.Set (Set)
-import qualified Data.Set as S
+-- import Data.Set (Set)
+-- import qualified Data.Set as S
 
 -- | Phonemic representation of Sanskrit, in standard lexicographic ordering.
-data Phoneme = A
-             | AA
-             | I
-             | II
-             | U
-             | UU
-             | VocR             -- short vocalic R
-             | VocRR            -- long vocalic R
-             | VocL             -- short vocalic L
-             | VocLL            -- long vocalic L
-             | E
-             | AI
-             | O
-             | AU
-             | Visarga
-             | Anusvara
+-- We represent visarga and anusvaras as modifiers on vowels, since they may
+-- only appear immediately after vowels.  (Note that in the standard
+-- lexicographic ordering,
+data Phoneme = A VowelMod
+             | AA VowelMod
+             | I VowelMod
+             | II VowelMod
+             | U VowelMod
+             | UU VowelMod
+             | VocR VowelMod    -- short vocalic R
+             | VocRR VowelMod   -- long vocalic R
+             | VocL VowelMod    -- short vocalic L
+             | VocLL VowelMod   -- long vocalic L
+             | E VowelMod
+             | AI VowelMod
+             | O VowelMod
+             | AU VowelMod
              | K
              | Kh
              | G
@@ -54,10 +55,7 @@ data Phoneme = A
              | RetS             -- retroflex sibilant
              | S
              | H
-               deriving (Eq, Show, Ord, Enum)
+               deriving (Eq, Show, Ord)
 
-vowels :: Set Phoneme
-vowels = S.fromAscList [A .. AU]
-
-consonants :: Set Phoneme
-consonants = S.fromAscList [K .. H]
+data VowelMod = NoMod | Visarga | Anusvara
+              deriving (Eq, Show, Ord)
