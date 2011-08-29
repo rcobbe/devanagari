@@ -1,6 +1,7 @@
 module Text.Devanagari.Unicode(toPhonemic, fromPhonemic)
 where
 
+import Data.List (foldl')
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Set (Set)
@@ -93,12 +94,6 @@ toPhonemic (c : cs)
   | c `M.member` initVowels = toPhonemicVowel (initVowels M.! c) cs
   | c `M.member` consonants = toPhonemicConsonant (consonants M.! c) cs
   | otherwise = Nothing
-
--- only illegal combination in phonemic representation is hiatus.  Suggests
--- that XXX we should support hiatus when converting unicode -> phonemic,
--- so we get symmetry but don't have to return a Maybe String here.
-fromPhonemic :: [P.Phoneme] -> String
-fromPhonemic = undefined
 
 -- Convert from unicode, after detecting a vowel (either initial or medial).
 -- Handle any vowel modifiers, then continue on.  First arg must be
@@ -227,6 +222,106 @@ consonants = M.fromList (
    (sa, P.S),
    (ha, P.H)])
 
+-- only illegal combination in phonemic representation is hiatus.  Suggests
+-- that XXX we should support hiatus when converting unicode -> phonemic,
+-- so we get symmetry but don't have to return a Maybe String here.
+fromPhonemic :: [P.Phoneme] -> String
+fromPhonemic [] = []
+fromPhonemic (p : ps)
+  | p `M.member` phonemicInitVowels =
+    (phonemicInitVowels M.! p) ++ fromPhonemic ps
+  | p `M.member` phonemicConsonants =
+    (phonemicConsonants M.! p) : fromPhonemicAfterConsonant ps
+  | otherwise = error "fromPhonemic internal error"
+
+fromPhonemicAfterConsonant :: [P.Phoneme] -> String
+fromPhonemicAfterConsonant [] = [virama]
+fromPhonemicAfterConsonant (p : ps)
+  | p `M.member` phonemicMedialVowels =
+    (phonemicMedialVowels M.! p) ++ fromPhonemic ps
+  | p `M.member` phonemicConsonants =
+    virama : (phonemicConsonants M.! p) : fromPhonemicAfterConsonant ps
+  | otherwise = error "fromPhonemic internal error"
+
+phonemicInitVowels :: Map P.Phoneme String
+phonemicInitVowels =
+  foldl' addPhonemicVowelEntry M.empty [
+    (P.A, [initA]),
+    (P.AA, [initAA]),
+    (P.I, [initI]),
+    (P.II, [initII]),
+    (P.U, [initU]),
+    (P.UU, [initUU]),
+    (P.VocR, [initVocR]),
+    (P.VocRR, [initVocRR]),
+    (P.VocL, [initVocL]),
+    (P.VocLL, [initVocLL]),
+    (P.E, [initE]),
+    (P.AI, [initAI]),
+    (P.O, [initO]),
+    (P.AU, [initAU])]
+
+phonemicMedialVowels :: Map P.Phoneme String
+phonemicMedialVowels =
+  foldl' addPhonemicVowelEntry M.empty [
+    (P.A, []),
+    (P.AA, [combAA]),
+    (P.I, [combI]),
+    (P.II, [combII]),
+    (P.U, [combU]),
+    (P.UU, [combUU]),
+    (P.VocR, [combVocR]),
+    (P.VocRR, [combVocRR]),
+    (P.VocL, [combVocL]),
+    (P.VocLL, [combVocLL]),
+    (P.E, [combE]),
+    (P.AI, [combAI]),
+    (P.O, [combO]),
+    (P.AU, [combAU])]
+
+addPhonemicVowelEntry :: Map P.Phoneme String
+                         -> (P.VowelMod -> P.Phoneme, String)
+                         -> Map P.Phoneme String
+addPhonemicVowelEntry m (p, u) =
+  M.insert (p P.NoMod) u (
+    M.insert (p P.Visarga) (u ++ [visarga]) (
+       M.insert (p P.Anusvara) (u ++ [anusvara]) m))
+
+phonemicConsonants :: Map P.Phoneme Char
+phonemicConsonants = M.fromList [
+  (P.K, ka),
+  (P.Kh, kha),
+  (P.G, ga),
+  (P.Gh, gha),
+  (P.Ng, velarNa),
+  (P.C, ca),
+  (P.Ch, cha),
+  (P.J, ja),
+  (P.Jh, jha),
+  (P.PalN, palatalNa),
+  (P.RetT, retroTa),
+  (P.RetTh, retroTha),
+  (P.RetD, retroDa),
+  (P.RetDh, retroDha),
+  (P.RetN, retroNa),
+  (P.T, ta),
+  (P.Th, tha),
+  (P.D, da),
+  (P.Dh, dha),
+  (P.N, na),
+  (P.P, pa),
+  (P.Ph, pha),
+  (P.B, ba),
+  (P.Bh, bha),
+  (P.M, ma),
+  (P.Y, ya),
+  (P.R, ra),
+  (P.L, la),
+  (P.V, va),
+  (P.PalS, palatalSa),
+  (P.RetS, retroSa),
+  (P.S, sa),
+  (P.H, ha)]
 
 {-
 
