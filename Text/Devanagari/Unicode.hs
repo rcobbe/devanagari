@@ -84,6 +84,152 @@ virama      = '\x094d'
 danda       = '\x0964'
 doubleDanda = '\x0965'
 
+-- Convert from unicode, at either beginning of word or after medial vowel.
+-- (Using this function after a medial vowel allows internal hiatus; see
+-- comments on fromPhonemic for why we choose to allow this.)
+toPhonemic :: String -> Maybe [P.Phoneme]
+toPhonemic [] = Just []
+toPhonemic (c : cs)
+  | c `M.member` initVowels = toPhonemicVowel (initVowels M.! c) cs
+  | c `M.member` consonants = toPhonemicConsonant (consonants M.! c) cs
+  | otherwise = Nothing
+
+-- only illegal combination in phonemic representation is hiatus.  Suggests
+-- that XXX we should support hiatus when converting unicode -> phonemic,
+-- so we get symmetry but don't have to return a Maybe String here.
+fromPhonemic :: [P.Phoneme] -> String
+fromPhonemic = undefined
+
+-- Convert from unicode, after detecting a vowel (either initial or medial).
+-- Handle any vowel modifiers, then continue on.  First arg must be
+-- constructor corresponding to vowel that we just saw.
+toPhonemicVowel :: (P.VowelMod -> P.Phoneme) -> String -> Maybe [P.Phoneme]
+toPhonemicVowel v [] = Just [v P.NoMod]
+toPhonemicVowel v s@(c : cs)
+  | c == visarga = (v P.Visarga) `mcons` toPhonemic cs
+  | c == anusvara = (v P.Anusvara) `mcons` toPhonemic cs
+  | otherwise = (v P.NoMod) `mcons` toPhonemic s
+                -- use of toPhonemic in last case allows hiatus; to signal
+                -- error, use toPhonemicNoVowel.
+
+-- XXX test coverage for visarga, anusvara after /a/ as well as other vowels.
+-- XXX test coverage:
+--   word initial vowel (/a/ and otherwise)
+--   word initial hiatus (first vowel /a/ and otherwise)
+--   mid-word hiatus (first vowel /a/ and otherwise)
+--   hiatus with visarga, anusvara
+--   visarga, anusvara after /a/, otherwise; initial, medial, word-final
+--   all consonants
+--   all medial vowels
+--   all initial vowels
+
+-- Convert from unicode, after seeing a consonant.  Handle complicated cases,
+-- then continue on.  First arg is consonant ctor.  Cases:
+--   1. end of word: add implicit a
+--   2. virama: bare consonant, then look for either end of word or another
+--         consonant.  (Vowels after viramas disallowed.)
+--   3. consonant: add implicit a, then continue with following consonant.
+--   4. visarga, anusvara: add implicit a with modifier, then continue.
+--   5. medial vowel: bare consonant, then call toPhonemicVowel to handle
+--          modifiers after vowel.
+--   6. initial vowel: add implicit a, then continue with toPhonemic to handle
+--          hiatus.
+toPhonemicConsonant :: P.Phoneme -> String -> Maybe [P.Phoneme]
+toPhonemicConsonant p [] = Just [p, P.A P.NoMod]
+toPhonemicConsonant p s@(c : cs)
+  | c == virama = p `mcons` toPhonemicNoVowel cs
+  | c `M.member` consonants = mcons p (mcons (P.A P.NoMod) (toPhonemic s))
+  | c == visarga = mcons p (mcons (P.A P.Visarga) (toPhonemic cs))
+  | c == anusvara = mcons p (mcons (P.A P.Anusvara) (toPhonemic cs))
+  | c `M.member` medialVowels =
+    p `mcons` toPhonemicVowel (medialVowels M.! c) cs
+  | c `M.member` initVowels = mcons p (mcons (P.A P.NoMod) (toPhonemic s))
+  | otherwise = Nothing
+
+-- Convert from unicode, after seeing consonant + virama.  Must find consonant
+-- or end of word here.
+toPhonemicNoVowel :: String -> Maybe [P.Phoneme]
+toPhonemicNoVowel [] = Just []
+toPhonemicNoVowel (c : cs)
+  | c `M.member` consonants = toPhonemicConsonant (consonants M.! c) cs
+  | otherwise = Nothing
+
+mcons :: a -> Maybe [a] -> Maybe [a]
+mcons _ Nothing = Nothing
+mcons x (Just xs) = Just (x:xs)
+
+initVowels :: Map Char (P.VowelMod -> P.Phoneme)
+initVowels = M.fromList (
+  [(initA, P.A),
+   (initAA, P.AA),
+   (initI, P.I),
+   (initII, P.II),
+   (initU, P.U),
+   (initUU, P.UU),
+   (initVocR, P.VocR),
+   (initVocRR, P.VocRR),
+   (initVocL, P.VocL),
+   (initVocLL, P.VocLL),
+   (initE, P.E),
+   (initAI, P.AI),
+   (initO, P.O),
+   (initAU, P.AU)])
+
+medialVowels :: Map Char (P.VowelMod -> P.Phoneme)
+medialVowels = M.fromList (
+  [(combAA, P.AA),
+   (combI, P.I),
+   (combII, P.II),
+   (combU, P.U),
+   (combUU, P.UU),
+   (combVocR, P.VocR),
+   (combVocRR, P.VocRR),
+   (combVocL, P.VocL),
+   (combVocLL, P.VocLL),
+   (combE, P.E),
+   (combAI, P.AI),
+   (combO, P.O),
+   (combAU, P.AU)])
+
+consonants :: Map Char P.Phoneme
+consonants = M.fromList (
+  [(ka, P.K),
+   (kha, P.Kh),
+   (ga, P.G),
+   (gha, P.Gh),
+   (velarNa, P.Ng),
+   (ca, P.C),
+   (cha, P.Ch),
+   (ja, P.J),
+   (jha, P.Jh),
+   (palatalNa, P.PalN),
+   (retroTa, P.RetT),
+   (retroTha, P.RetTh),
+   (retroDa, P.RetD),
+   (retroDha, P.RetDh),
+   (retroNa, P.RetN),
+   (ta, P.T),
+   (tha, P.Th),
+   (da, P.D),
+   (dha, P.Dh),
+   (na, P.N),
+   (pa, P.P),
+   (pha, P.Ph),
+   (ba, P.B),
+   (bha, P.Bh),
+   (ma, P.M),
+   (ya, P.Y),
+   (ra, P.R),
+   (la, P.L),
+   (va, P.V),
+   (palatalSa, P.PalS),
+   (retroSa, P.RetS),
+   (sa, P.S),
+   (ha, P.H)])
+
+
+{-
+
 -- interface options considered:
 -- 1) toPhonemic :: String -> Maybe [[P.Phoneme]]
 --          splits at word boundaries, discards whitespace; None on failure
@@ -135,13 +281,15 @@ toPhonemicMedial s =
 -- trie for conversion, indexed by unicode
 unicodeTrie :: Trie Char [P.Phoneme]
 unicodeTrie =
-  T.fromList
-  (([anusvara], [P.Anusvara])
-   : ([visarga], [P.Visarga])
-   : map makeVowelTrieEntry vowelsToPhonemic
-   ++ (concatMap makeConsonantTrieEntries consonantsToPhonemic))
+  T.fromList (
+    concatMap makeVowelTrieEntries vowelsToPhonemic
+    ++ (concatMap makeConsonantTrieEntries consonantsToPhonemic))
     where makeVowelTrieEntry :: (Char, P.Phoneme) -> (String, [P.Phoneme])
           makeVowelTrieEntry (c, p) = ([c], [p])
+
+makeVowelTrieEntries :: (Char, P.Phoneme) -> [(String, [P.Phoneme])]
+makeVowelTrieEntries (c, p) =
+
 
 makeConsonantTrieEntries :: (Char, P.Phoneme) -> [(String, [P.Phoneme])]
 makeConsonantTrieEntries (c, p) =
@@ -195,9 +343,6 @@ vowelsToPhonemic =
    (combO, P.O),
    (initAU, P.AU),
    (combAU, P.AU)]
-
-unicodeVowels :: Set Char
-unicodeVowels = S.fromList (map fst vowelsToPhonemic)
 
 -- maps unicode consonsants to simplest phonemic equivalent (discards -a)
 consonantsToPhonemic :: [(Char, P.Phoneme)]
@@ -320,3 +465,5 @@ mcons :: Maybe a -> Maybe [a] -> Maybe [a]
 mcons Nothing _ = Nothing
 mcons _ Nothing = Nothing
 mcons (Just x) (Just xs) = Just (x : xs)
+
+-}
