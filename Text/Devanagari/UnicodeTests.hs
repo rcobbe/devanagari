@@ -4,6 +4,17 @@ import Test.HUnit
 import qualified Text.Devanagari.Phonemic as P
 import qualified Text.Devanagari.Unicode as U
 
+-- XXX test coverage for visarga, anusvara after /a/ as well as other vowels.
+-- XXX test coverage:
+--   word initial vowel (/a/ and otherwise)
+--   word initial hiatus (first vowel /a/ and otherwise)
+--   mid-word hiatus (first vowel /a/ and otherwise)
+--   hiatus with visarga, anusvara
+--   visarga, anusvara after /a/, otherwise; initial, medial, word-final
+--   all consonants
+--   all medial vowels
+--   all initial vowels
+
 -- label, Unicode, phonemes
 testSpecs :: [(String, String, [P.Phoneme])]
 testSpecs =
