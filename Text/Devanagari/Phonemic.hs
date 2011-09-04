@@ -1,4 +1,4 @@
-module Text.Devanagari.Phonemic(Phoneme(..), VowelMod(..))
+module Text.Devanagari.Phonemic(Phoneme(..), VowelMod(..), isVowel)
 where
 
 -- import Data.Set (Set)
@@ -59,3 +59,20 @@ data Phoneme = A VowelMod
 
 data VowelMod = NoMod | Visarga | Anusvara
               deriving (Eq, Show, Ord)
+
+isVowel :: Phoneme -> Bool
+isVowel (A _) = True
+isVowel (AA _) = True
+isVowel (I _) = True
+isVowel (II _) = True
+isVowel (U _) = True
+isVowel (UU _) = True
+isVowel (VocR _) = True
+isVowel (VocRR _) = True
+isVowel (VocL _) = True
+isVowel (VocLL _) = True
+isVowel (E _) = True
+isVowel (AI _) = True
+isVowel (O _) = True
+isVowel (AU _) = True
+isVowel _ = False
