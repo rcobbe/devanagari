@@ -37,8 +37,8 @@ testSpecs =
    ("vowel hiatus", "दउत",
     [P.D, P.A P.NoMod, P.U P.NoMod, P.T, P.A P.NoMod]),
    ("final samyoga", "रक्ष्",
-    [P.R, P.A P.NoMod, P.K, P.RetS])
-   ]
+    [P.R, P.A P.NoMod, P.K, P.RetS])]
+  ++ initialVowelTests
 
 tests =
   (TestLabel "Text.Devanagari.Unicode tests"
@@ -47,6 +47,30 @@ tests =
      TestList (map mkUtoPTest testSpecs),
      "Phonemic to Unicode" ~:
      TestList (map mkPtoUTest testSpecs)]))
+
+initialVowelTests =
+  map makeInitialVowelTest
+  [("a", "अ", P.A),
+   ("aa", "आ", P.AA),
+   ("i", "इ", P.I),
+   ("ii", "ई", P.II),
+   ("u", "उ", P.U),
+   ("uu", "ऊ", P.UU),
+   (".r", "ऋ", P.VocR),
+   (".r.r", "ॠ", P.VocRR),
+   (".l", "ऌ", P.VocL),
+   (".l.l", "ॡ", P.VocLL),
+   ("e", "ए", P.E),
+   ("ai", "ऐ", P.AI),
+   ("o", "ओ", P.O),
+   ("au", "औ", P.AU)]
+
+makeInitialVowelTest :: (String, String, P.VowelMod -> P.Phoneme)
+                        -> (String, String, [P.Phoneme])
+makeInitialVowelTest (velthuis, unicode, phoneme) =
+  ("initial " ++ velthuis,
+   unicode ++ "क",
+   [phoneme P.NoMod, P.K, P.A P.NoMod])
 
 mkUtoPTest :: (String, String, [P.Phoneme]) -> Test
 mkUtoPTest (label, unicode, phonemes) =
