@@ -4,9 +4,6 @@ import Test.HUnit
 import qualified Text.Devanagari.Phonemic as P
 import qualified Text.Devanagari.Unicode as U
 
--- XXX include final visarga, medial visarga, medial anusvara, vowel hiatus
--- Samyoga at the end of a word?  Is that possible?
-
 -- label, Unicode, phonemes
 testSpecs :: [(String, String, [P.Phoneme])]
 testSpecs =
