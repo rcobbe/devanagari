@@ -10,79 +10,103 @@ import Data.Trie (Trie)
 import qualified Data.Trie as T
 import qualified Text.Devanagari.Phonemic as P
 
-toPhonemic :: String -> Maybe ([P.Phoneme], String)
-toPhonemic [] = Nothing
-toPhonemic s = toPhonemicNonempty s
+toPhonemic :: String -> Maybe [P.Phoneme]
+toPhonemic [] = Just []
+toPhonemic s =
+  case (T.matchPrefix velthuisTrie s) of
+    Nothing -> Nothing
+    Just (s', Nothing) -> toPhonemic s'
+    Just (s', Just p) -> mcons p (toPhonemic s')
 
-toPhonemicNonempty :: String -> Maybe ([P.Phoneme], String)
-toPhonemicNonempty [] = Just ([], "")
-toPhonemicNonempty s =
-  -- Maybe monad
-  do (s', p) <- T.matchPrefix velthuisTrie s
-     (p', rest) <- toPhonemicNonempty s'
-     case p of
-       Nothing -> return (p', rest)
-       Just x -> return (x : p', rest)
+fromPhonemic :: [P.Phoneme] -> String
+fromPhonemic ps = fromPhonemic' ps []
 
-fromPhonemic :: [P.Phoneme] -> Maybe String
-fromPhonemic ps =
-  do strs <- mapM (\ p -> M.lookup p velthuisMap) ps
-     return $ concat strs
+-- does phonemic translation, inserting vowelSep before vowel
+fromPhonemic' :: [P.Phoneme] -> String -> String
+fromPhonemic' [] _ = []
+fromPhonemic' (p:ps) vowelSep
+  | P.isVowel p = vowelSep ++ velthuis ++ (fromPhonemic' ps "{}")
+  | otherwise = velthuis ++ (fromPhonemic' ps "")
+  where velthuis =
+          case (M.lookup p velthuisMap) of
+            Just s -> s
+            Nothing -> error "Velthuis.fromPhonemic: internal error"
 
+-- alist defining mapping between velthuis, phonemic.
 velthuisAList :: [(String, P.Phoneme)]
-velthuisAList = [("a", P.A),
-                 ("aa", P.AA),
-                 ("i", P.I),
-                 ("ii", P.II),
-                 ("u", P.U),
-                 ("uu", P.UU),
-                 (".r", P.VocR),
-                 (".R", P.VocRR),
-                 (".l", P.VocL),
-                 ("e", P.E),
-                 ("ai", P.AI),
-                 ("o", P.O),
-                 ("au", P.AU),
-                 (".h", P.Visarga),
-                 (".m", P.Anusvara),
-                 ("k", P.K),
-                 ("kh", P.Kh),
-                 ("g", P.G),
-                 ("gh", P.Gh),
-                 ("\"n", P.Ng),
-                 ("c", P.C),
-                 ("ch", P.Ch),
-                 ("j", P.J),
-                 ("jh", P.Jh),
-                 ("~n", P.PalN),
-                 (".t", P.RetT),
-                 (".th", P.RetTh),
-                 (".d", P.RetD),
-                 (".dh", P.RetDh),
-                 (".n", P.RetN),
-                 ("t", P.T),
-                 ("th", P.Th),
-                 ("d", P.D),
-                 ("dh", P.Dh),
-                 ("n", P.N),
-                 ("p", P.P),
-                 ("ph", P.Ph),
-                 ("b", P.B),
-                 ("bh", P.Bh),
-                 ("m", P.M),
-                 ("y", P.Y),
-                 ("r", P.R),
-                 ("l", P.L),
-                 ("v", P.V),
-                 ("\"s", P.PalS),
-                 (".s", P.RetS),
-                 ("s", P.S),
-                 ("h", P.H)]
+velthuisAList =
+  addVowels [("k", P.K),
+             ("kh", P.Kh),
+             ("g", P.G),
+             ("gh", P.Gh),
+             ("\"n", P.Ng),
+             ("c", P.C),
+             ("ch", P.Ch),
+             ("j", P.J),
+             ("jh", P.Jh),
+             ("~n", P.PalN),
+             (".t", P.RetT),
+             (".th", P.RetTh),
+             (".d", P.RetD),
+             (".dh", P.RetDh),
+             (".n", P.RetN),
+             ("t", P.T),
+             ("th", P.Th),
+             ("d", P.D),
+             ("dh", P.Dh),
+             ("n", P.N),
+             ("p", P.P),
+             ("ph", P.Ph),
+             ("b", P.B),
+             ("bh", P.Bh),
+             ("m", P.M),
+             ("y", P.Y),
+             ("r", P.R),
+             ("l", P.L),
+             ("v", P.V),
+             ("\"s", P.PalS),
+             (".s", P.RetS),
+             ("s", P.S),
+             ("h", P.H)]
 
+-- trie from velthuis encoding to phoneme.  Mapping to Nothing means that
+-- symbol should be silently discarded from output; we use this to implement
+-- {} for hiatus; useful in, say, a{}u or aa{}i.
 velthuisTrie :: Trie Char (Maybe P.Phoneme)
 velthuisTrie =
   T.fromList (("{}", Nothing) : map (\(v, p) -> (v, Just p)) velthuisAList)
 
+-- Map from phoneme to velthuis encoding
 velthuisMap :: Map P.Phoneme String
 velthuisMap =
   M.fromList (map (\(v, p) -> (p, v)) velthuisAList)
+
+-- add vowel translation entries to the supplied list; abstracts over various
+-- vowel modifiers
+addVowels :: [(String, P.Phoneme)] -> [(String, P.Phoneme)]
+addVowels base =
+  foldr addVowel base [("a", P.A),
+                       ("aa", P.AA),
+                       ("i", P.I),
+                       ("ii", P.II),
+                       ("u", P.U),
+                       ("uu", P.UU),
+                       (".r", P.VocR),
+                       (".R", P.VocRR),
+                       (".l", P.VocL),
+                       ("e", P.E),
+                       ("ai", P.AI),
+                       ("o", P.O),
+                       ("au", P.AU)]
+
+-- add a single vowel, plus all modifiers, to base alist.
+addVowel :: (String, P.VowelMod -> P.Phoneme) -> [(String, P.Phoneme)]
+            -> [(String, P.Phoneme)]
+addVowel (s, vc) base =
+  (s, vc P.NoMod) :
+  (s ++ ".h", vc P.Visarga) :
+  (s ++ ".m", vc P.Anusvara) : base
+
+mcons :: a -> Maybe [a] -> Maybe [a]
+mcons _ Nothing = Nothing
+mcons x (Just xs) = Just (x:xs)
