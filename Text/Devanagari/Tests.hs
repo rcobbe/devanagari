@@ -6,6 +6,17 @@ import qualified Text.Devanagari.Phonemic as P
 import qualified Text.Devanagari.Unicode as U
 import qualified Text.Devanagari.Velthuis as V
 
+-- XXX test coverage additions:
+--  * visarga, anusvara after /a/ and other vowels
+--  * all consonants
+--  * all medial vowels
+--  * hiatus with visarga, anusvara on first, second vowels
+--  * visarga after initial & final vowels
+--  * initial, medial hiatus, with first vowel /a/ and otherwise
+-- XXX fix hiatus: add vowel prefix to velthuis lookup map rather than mucking
+-- about with isVowel predicate.  That way, we only stick {} after a or aa, and
+-- only without visarga, anusvara.
+
 data TestSpec = TS { label :: String,
                      unicode :: String,
                      velthuis :: String,
