@@ -82,7 +82,10 @@ velthuisMap =
   M.fromList (map (\(v, p) -> (p, v)) velthuisAList)
 
 -- add vowel translation entries to the supplied list; abstracts over various
--- vowel modifiers
+-- vowel modifiers.  We include long vocalic L, even though it's not in the
+-- velthuis mapping that xetex expects, because otherwise we'd have no
+-- representation of it in the Velthuis encoding.  Probably not a real concern,
+-- as it shouldn't ever arise.
 addVowels :: [(String, P.Phoneme)] -> [(String, P.Phoneme)]
 addVowels base =
   foldr addVowel base [("a", P.A),
@@ -94,6 +97,7 @@ addVowels base =
                        (".r", P.VocR),
                        (".R", P.VocRR),
                        (".l", P.VocL),
+                       (".L", P.VocLL),
                        ("e", P.E),
                        ("ai", P.AI),
                        ("o", P.O),
