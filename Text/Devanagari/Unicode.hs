@@ -4,12 +4,10 @@ where
 import Data.List (foldl')
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Set (Set)
-import qualified Data.Set as S
 import Data.Trie (Trie)
 import qualified Data.Trie as T
 
-import qualified Text.Devanagari.Phonemic as P
+import qualified Text.Devanagari.Segments as S
 
 initA, initAA, combAA, initI, combI, initII, combII, initU, combU, initUU,
   combUU, initVocR, combVocR, initVocRR, combVocRR, initVocL, combVocL,
@@ -94,7 +92,7 @@ doubleDanda = '\x0965'
 --   * unsupported char in input
 --   * medial vowel or virama anywhere except after consonant
 --   * visarga, anusvara anywhere except after vowel
-toPhonemic :: String -> Maybe [P.Phoneme]
+toPhonemic :: String -> Maybe [S.Segment]
 toPhonemic [] = Just []
 toPhonemic (c : cs)
   | c `M.member` initVowels = toPhonemicVowel (initVowels M.! c) cs
@@ -104,12 +102,12 @@ toPhonemic (c : cs)
 -- Convert from unicode, after detecting a vowel (either initial or medial).
 -- Handle any vowel modifiers, then continue on.  First arg must be
 -- constructor corresponding to vowel that we just saw.
-toPhonemicVowel :: (P.VowelMod -> P.Phoneme) -> String -> Maybe [P.Phoneme]
-toPhonemicVowel v [] = Just [v P.NoMod]
+toPhonemicVowel :: (S.VowelMod -> S.Segment) -> String -> Maybe [S.Segment]
+toPhonemicVowel v [] = Just [v S.NoMod]
 toPhonemicVowel v s@(c : cs)
-  | c == visarga = (v P.Visarga) `mcons` toPhonemic cs
-  | c == anusvara = (v P.Anusvara) `mcons` toPhonemic cs
-  | otherwise = (v P.NoMod) `mcons` toPhonemic s
+  | c == visarga = (v S.Visarga) `mcons` toPhonemic cs
+  | c == anusvara = (v S.Anusvara) `mcons` toPhonemic cs
+  | otherwise = (v S.NoMod) `mcons` toPhonemic s
                 -- use of toPhonemic in last case allows hiatus; to signal
                 -- error, use toPhonemicNoVowel.
 
@@ -124,21 +122,21 @@ toPhonemicVowel v s@(c : cs)
 --          modifiers after vowel.
 --   6. initial vowel: add implicit a, then continue with toPhonemic to handle
 --          hiatus.
-toPhonemicConsonant :: P.Phoneme -> String -> Maybe [P.Phoneme]
-toPhonemicConsonant p [] = Just [p, P.A P.NoMod]
+toPhonemicConsonant :: S.Segment -> String -> Maybe [S.Segment]
+toPhonemicConsonant p [] = Just [p, S.A S.NoMod]
 toPhonemicConsonant p s@(c : cs)
   | c == virama = p `mcons` toPhonemicNoVowel cs
-  | c `M.member` consonants = mcons p (mcons (P.A P.NoMod) (toPhonemic s))
-  | c == visarga = mcons p (mcons (P.A P.Visarga) (toPhonemic cs))
-  | c == anusvara = mcons p (mcons (P.A P.Anusvara) (toPhonemic cs))
+  | c `M.member` consonants = mcons p (mcons (S.A S.NoMod) (toPhonemic s))
+  | c == visarga = mcons p (mcons (S.A S.Visarga) (toPhonemic cs))
+  | c == anusvara = mcons p (mcons (S.A S.Anusvara) (toPhonemic cs))
   | c `M.member` medialVowels =
     p `mcons` toPhonemicVowel (medialVowels M.! c) cs
-  | c `M.member` initVowels = mcons p (mcons (P.A P.NoMod) (toPhonemic s))
+  | c `M.member` initVowels = mcons p (mcons (S.A S.NoMod) (toPhonemic s))
   | otherwise = Nothing
 
 -- Convert from unicode, after seeing consonant + virama.  Must find consonant
 -- or end of word here.
-toPhonemicNoVowel :: String -> Maybe [P.Phoneme]
+toPhonemicNoVowel :: String -> Maybe [S.Segment]
 toPhonemicNoVowel [] = Just []
 toPhonemicNoVowel (c : cs)
   | c `M.member` consonants = toPhonemicConsonant (consonants M.! c) cs
@@ -148,76 +146,76 @@ mcons :: a -> Maybe [a] -> Maybe [a]
 mcons _ Nothing = Nothing
 mcons x (Just xs) = Just (x:xs)
 
-initVowels :: Map Char (P.VowelMod -> P.Phoneme)
+initVowels :: Map Char (S.VowelMod -> S.Segment)
 initVowels = M.fromList (
-  [(initA, P.A),
-   (initAA, P.AA),
-   (initI, P.I),
-   (initII, P.II),
-   (initU, P.U),
-   (initUU, P.UU),
-   (initVocR, P.VocR),
-   (initVocRR, P.VocRR),
-   (initVocL, P.VocL),
-   (initVocLL, P.VocLL),
-   (initE, P.E),
-   (initAI, P.AI),
-   (initO, P.O),
-   (initAU, P.AU)])
+  [(initA, S.A),
+   (initAA, S.AA),
+   (initI, S.I),
+   (initII, S.II),
+   (initU, S.U),
+   (initUU, S.UU),
+   (initVocR, S.VocR),
+   (initVocRR, S.VocRR),
+   (initVocL, S.VocL),
+   (initVocLL, S.VocLL),
+   (initE, S.E),
+   (initAI, S.AI),
+   (initO, S.O),
+   (initAU, S.AU)])
 
-medialVowels :: Map Char (P.VowelMod -> P.Phoneme)
+medialVowels :: Map Char (S.VowelMod -> S.Segment)
 medialVowels = M.fromList (
-  [(combAA, P.AA),
-   (combI, P.I),
-   (combII, P.II),
-   (combU, P.U),
-   (combUU, P.UU),
-   (combVocR, P.VocR),
-   (combVocRR, P.VocRR),
-   (combVocL, P.VocL),
-   (combVocLL, P.VocLL),
-   (combE, P.E),
-   (combAI, P.AI),
-   (combO, P.O),
-   (combAU, P.AU)])
+  [(combAA, S.AA),
+   (combI, S.I),
+   (combII, S.II),
+   (combU, S.U),
+   (combUU, S.UU),
+   (combVocR, S.VocR),
+   (combVocRR, S.VocRR),
+   (combVocL, S.VocL),
+   (combVocLL, S.VocLL),
+   (combE, S.E),
+   (combAI, S.AI),
+   (combO, S.O),
+   (combAU, S.AU)])
 
-consonants :: Map Char P.Phoneme
+consonants :: Map Char S.Segment
 consonants = M.fromList (
-  [(ka, P.K),
-   (kha, P.Kh),
-   (ga, P.G),
-   (gha, P.Gh),
-   (velarNa, P.Ng),
-   (ca, P.C),
-   (cha, P.Ch),
-   (ja, P.J),
-   (jha, P.Jh),
-   (palatalNa, P.PalN),
-   (retroTa, P.RetT),
-   (retroTha, P.RetTh),
-   (retroDa, P.RetD),
-   (retroDha, P.RetDh),
-   (retroNa, P.RetN),
-   (ta, P.T),
-   (tha, P.Th),
-   (da, P.D),
-   (dha, P.Dh),
-   (na, P.N),
-   (pa, P.P),
-   (pha, P.Ph),
-   (ba, P.B),
-   (bha, P.Bh),
-   (ma, P.M),
-   (ya, P.Y),
-   (ra, P.R),
-   (la, P.L),
-   (va, P.V),
-   (palatalSa, P.PalS),
-   (retroSa, P.RetS),
-   (sa, P.S),
-   (ha, P.H)])
+  [(ka, S.K),
+   (kha, S.Kh),
+   (ga, S.G),
+   (gha, S.Gh),
+   (velarNa, S.Ng),
+   (ca, S.C),
+   (cha, S.Ch),
+   (ja, S.J),
+   (jha, S.Jh),
+   (palatalNa, S.PalN),
+   (retroTa, S.RetT),
+   (retroTha, S.RetTh),
+   (retroDa, S.RetD),
+   (retroDha, S.RetDh),
+   (retroNa, S.RetN),
+   (ta, S.T),
+   (tha, S.Th),
+   (da, S.D),
+   (dha, S.Dh),
+   (na, S.N),
+   (pa, S.P),
+   (pha, S.Ph),
+   (ba, S.B),
+   (bha, S.Bh),
+   (ma, S.M),
+   (ya, S.Y),
+   (ra, S.R),
+   (la, S.L),
+   (va, S.V),
+   (palatalSa, S.PalS),
+   (retroSa, S.RetS),
+   (sa, S.S),
+   (ha, S.H)])
 
-fromPhonemic :: [P.Phoneme] -> String
+fromPhonemic :: [S.Segment] -> String
 fromPhonemic [] = []
 fromPhonemic (p : ps)
   | p `M.member` phonemicInitVowels =
@@ -226,7 +224,7 @@ fromPhonemic (p : ps)
     (phonemicConsonants M.! p) : fromPhonemicAfterConsonant ps
   | otherwise = error "fromPhonemic internal error"
 
-fromPhonemicAfterConsonant :: [P.Phoneme] -> String
+fromPhonemicAfterConsonant :: [S.Segment] -> String
 fromPhonemicAfterConsonant [] = [virama]
 fromPhonemicAfterConsonant (p : ps)
   | p `M.member` phonemicMedialVowels =
@@ -235,82 +233,82 @@ fromPhonemicAfterConsonant (p : ps)
     virama : (phonemicConsonants M.! p) : fromPhonemicAfterConsonant ps
   | otherwise = error "fromPhonemic internal error"
 
-phonemicInitVowels :: Map P.Phoneme String
+phonemicInitVowels :: Map S.Segment String
 phonemicInitVowels =
   foldl' addPhonemicVowelEntry M.empty [
-    (P.A, [initA]),
-    (P.AA, [initAA]),
-    (P.I, [initI]),
-    (P.II, [initII]),
-    (P.U, [initU]),
-    (P.UU, [initUU]),
-    (P.VocR, [initVocR]),
-    (P.VocRR, [initVocRR]),
-    (P.VocL, [initVocL]),
-    (P.VocLL, [initVocLL]),
-    (P.E, [initE]),
-    (P.AI, [initAI]),
-    (P.O, [initO]),
-    (P.AU, [initAU])]
+    (S.A, [initA]),
+    (S.AA, [initAA]),
+    (S.I, [initI]),
+    (S.II, [initII]),
+    (S.U, [initU]),
+    (S.UU, [initUU]),
+    (S.VocR, [initVocR]),
+    (S.VocRR, [initVocRR]),
+    (S.VocL, [initVocL]),
+    (S.VocLL, [initVocLL]),
+    (S.E, [initE]),
+    (S.AI, [initAI]),
+    (S.O, [initO]),
+    (S.AU, [initAU])]
 
-phonemicMedialVowels :: Map P.Phoneme String
+phonemicMedialVowels :: Map S.Segment String
 phonemicMedialVowels =
   foldl' addPhonemicVowelEntry M.empty [
-    (P.A, []),
-    (P.AA, [combAA]),
-    (P.I, [combI]),
-    (P.II, [combII]),
-    (P.U, [combU]),
-    (P.UU, [combUU]),
-    (P.VocR, [combVocR]),
-    (P.VocRR, [combVocRR]),
-    (P.VocL, [combVocL]),
-    (P.VocLL, [combVocLL]),
-    (P.E, [combE]),
-    (P.AI, [combAI]),
-    (P.O, [combO]),
-    (P.AU, [combAU])]
+    (S.A, []),
+    (S.AA, [combAA]),
+    (S.I, [combI]),
+    (S.II, [combII]),
+    (S.U, [combU]),
+    (S.UU, [combUU]),
+    (S.VocR, [combVocR]),
+    (S.VocRR, [combVocRR]),
+    (S.VocL, [combVocL]),
+    (S.VocLL, [combVocLL]),
+    (S.E, [combE]),
+    (S.AI, [combAI]),
+    (S.O, [combO]),
+    (S.AU, [combAU])]
 
-addPhonemicVowelEntry :: Map P.Phoneme String
-                         -> (P.VowelMod -> P.Phoneme, String)
-                         -> Map P.Phoneme String
+addPhonemicVowelEntry :: Map S.Segment String
+                         -> (S.VowelMod -> S.Segment, String)
+                         -> Map S.Segment String
 addPhonemicVowelEntry m (p, u) =
-  M.insert (p P.NoMod) u (
-    M.insert (p P.Visarga) (u ++ [visarga]) (
-       M.insert (p P.Anusvara) (u ++ [anusvara]) m))
+  M.insert (p S.NoMod) u (
+    M.insert (p S.Visarga) (u ++ [visarga]) (
+       M.insert (p S.Anusvara) (u ++ [anusvara]) m))
 
-phonemicConsonants :: Map P.Phoneme Char
+phonemicConsonants :: Map S.Segment Char
 phonemicConsonants = M.fromList [
-  (P.K, ka),
-  (P.Kh, kha),
-  (P.G, ga),
-  (P.Gh, gha),
-  (P.Ng, velarNa),
-  (P.C, ca),
-  (P.Ch, cha),
-  (P.J, ja),
-  (P.Jh, jha),
-  (P.PalN, palatalNa),
-  (P.RetT, retroTa),
-  (P.RetTh, retroTha),
-  (P.RetD, retroDa),
-  (P.RetDh, retroDha),
-  (P.RetN, retroNa),
-  (P.T, ta),
-  (P.Th, tha),
-  (P.D, da),
-  (P.Dh, dha),
-  (P.N, na),
-  (P.P, pa),
-  (P.Ph, pha),
-  (P.B, ba),
-  (P.Bh, bha),
-  (P.M, ma),
-  (P.Y, ya),
-  (P.R, ra),
-  (P.L, la),
-  (P.V, va),
-  (P.PalS, palatalSa),
-  (P.RetS, retroSa),
-  (P.S, sa),
-  (P.H, ha)]
+  (S.K, ka),
+  (S.Kh, kha),
+  (S.G, ga),
+  (S.Gh, gha),
+  (S.Ng, velarNa),
+  (S.C, ca),
+  (S.Ch, cha),
+  (S.J, ja),
+  (S.Jh, jha),
+  (S.PalN, palatalNa),
+  (S.RetT, retroTa),
+  (S.RetTh, retroTha),
+  (S.RetD, retroDa),
+  (S.RetDh, retroDha),
+  (S.RetN, retroNa),
+  (S.T, ta),
+  (S.Th, tha),
+  (S.D, da),
+  (S.Dh, dha),
+  (S.N, na),
+  (S.P, pa),
+  (S.Ph, pha),
+  (S.B, ba),
+  (S.Bh, bha),
+  (S.M, ma),
+  (S.Y, ya),
+  (S.R, ra),
+  (S.L, la),
+  (S.V, va),
+  (S.PalS, palatalSa),
+  (S.RetS, retroSa),
+  (S.S, sa),
+  (S.H, ha)]

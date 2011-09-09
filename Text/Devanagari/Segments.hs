@@ -1,14 +1,15 @@
-module Text.Devanagari.Phonemic(Phoneme(..), VowelMod(..), isVowel)
+module Text.Devanagari.Segments(Segment(..), VowelMod(..), isVowel)
 where
 
--- import Data.Set (Set)
--- import qualified Data.Set as S
-
--- | Phonemic representation of Sanskrit, in standard lexicographic ordering.
+-- | Segmental representation of Sanskrit, in standard lexicographic ordering.
 -- We represent visarga and anusvaras as modifiers on vowels, since they may
 -- only appear immediately after vowels.  (Note that in the standard
--- lexicographic ordering,
-data Phoneme = A VowelMod
+-- lexicographic ordering, visarga and anusvara appear in that order
+-- between vowels and consonants, so this representation change preserves the
+-- standard lexicographical ordering on [Segment], except in cases involving
+-- vowel hiatus: [T, E Visarga, A NoMod, P, I] > [T, E NoMod, A NoMod, P, I],
+-- even though the normal Sanskrit ordering would be otherwise.
+data Segment = A VowelMod
              | AA VowelMod
              | I VowelMod
              | II VowelMod
@@ -60,7 +61,7 @@ data Phoneme = A VowelMod
 data VowelMod = NoMod | Visarga | Anusvara
               deriving (Eq, Show, Ord)
 
-isVowel :: Phoneme -> Bool
+isVowel :: Segment -> Bool
 isVowel (A _) = True
 isVowel (AA _) = True
 isVowel (I _) = True

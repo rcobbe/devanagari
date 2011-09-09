@@ -2,7 +2,7 @@ module Text.Devanagari.Tests(tests) where
 
 import Test.HUnit
 import Data.List (unzip4)
-import qualified Text.Devanagari.Phonemic as P
+import qualified Text.Devanagari.Segments as S
 import qualified Text.Devanagari.Unicode as U
 import qualified Text.Devanagari.Velthuis as V
 
@@ -16,7 +16,7 @@ import qualified Text.Devanagari.Velthuis as V
 data TestSpec = TS { label :: String,
                      unicode :: String,
                      velthuis :: String,
-                     phonemes :: [P.Phoneme] }
+                     phonemes :: [S.Segment] }
 
 tests =
   let (utop, ptou, vtop, ptov) = unzip4 (map makeTest testSpecs)
@@ -38,143 +38,143 @@ makeTest (TS { label = l, unicode = u, velthuis = v, phonemes = p }) =
 -- label, Unicode, phonemes
 testSpecs :: [TestSpec]
 testSpecs =
-  let a = P.A P.NoMod
+  let a = S.A S.NoMod
   in
    [TS { label = "CV*, no implicit vowels",
          unicode = "कूपेषु",
          velthuis = "kuupe.su",
-         phonemes = [P.K, P.UU P.NoMod, P.P, P.E P.NoMod, P.RetS, P.U P.NoMod]
+         phonemes = [S.K, S.UU S.NoMod, S.P, S.E S.NoMod, S.RetS, S.U S.NoMod]
        },
     TS { label = "CV*C, no implicit vowels",
          unicode = "कूपात्",
          velthuis = "kuupaat",
-         phonemes = [P.K, P.UU P.NoMod, P.P, P.AA P.NoMod, P.T]
+         phonemes = [S.K, S.UU S.NoMod, S.P, S.AA S.NoMod, S.T]
        },
     TS { label = "CV*C, with implicit vowel",
          unicode = "वनम्",
          velthuis = "vanam",
-         phonemes = [P.V, P.A P.NoMod, P.N, P.A P.NoMod, P.M]
+         phonemes = [S.V, S.A S.NoMod, S.N, S.A S.NoMod, S.M]
        },
     TS { label = "with samyoga",
          unicode = "कूपस्य",
          velthuis = "kuupasya",
-         phonemes = [P.K, P.UU P.NoMod, P.P, P.A P.NoMod, P.S, P.Y, P.A P.NoMod]
+         phonemes = [S.K, S.UU S.NoMod, S.P, S.A S.NoMod, S.S, S.Y, S.A S.NoMod]
        },
     TS { label = "initial vowel with samyoga",
          unicode = "अश्वेषु",
          velthuis = "a\"sve.su",
-         phonemes = [P.A P.NoMod, P.PalS, P.V, P.E P.NoMod, P.RetS, P.U P.NoMod]
+         phonemes = [S.A S.NoMod, S.PalS, S.V, S.E S.NoMod, S.RetS, S.U S.NoMod]
        },
     TS { label = "medial & final visargas",
          unicode = "दुःखयोः",
          velthuis = "du.hkhayo.h",
-         phonemes = [P.D, P.U P.Visarga, P.Kh, P.A P.NoMod, P.Y, P.O P.Visarga]
+         phonemes = [S.D, S.U S.Visarga, S.Kh, S.A S.NoMod, S.Y, S.O S.Visarga]
        },
     TS { label = "visarga after a, initial, medial, and final",
          unicode = "अःकःपः",
          velthuis = "a.hka.hpa.h",
-         phonemes = [P.A P.Visarga, P.K, P.A P.Visarga, P.P, P.A P.Visarga]
+         phonemes = [S.A S.Visarga, S.K, S.A S.Visarga, S.P, S.A S.Visarga]
        },
     TS { label = "visarga after initial i, medial e, and final au",
          unicode = "इःपेःतौः",
          velthuis = "i.hpe.htau.h",
-         phonemes = [P.I P.Visarga, P.P, P.E P.Visarga, P.T, P.AU P.Visarga]
+         phonemes = [S.I S.Visarga, S.P, S.E S.Visarga, S.T, S.AU S.Visarga]
        },
     TS { label = "medial anusvara after a",
          unicode = "संस्कृत्",
          velthuis = "sa.msk.rt",
-         phonemes = [P.S, P.A P.Anusvara, P.S, P.K, P.VocR P.NoMod, P.T] },
+         phonemes = [S.S, S.A S.Anusvara, S.S, S.K, S.VocR S.NoMod, S.T] },
     TS { label = "medial anusvara after written vowel",
          unicode = "सिंह",
          velthuis = "si.mha",
-         phonemes = [P.S, P.I P.Anusvara, P.H, P.A P.NoMod]
+         phonemes = [S.S, S.I S.Anusvara, S.H, S.A S.NoMod]
        },
     TS { label = "vowel hiatus",
          unicode = "दउत",
          velthuis = "da{}uta",
-         phonemes = [P.D, P.A P.NoMod, P.U P.NoMod, P.T, P.A P.NoMod]
+         phonemes = [S.D, S.A S.NoMod, S.U S.NoMod, S.T, S.A S.NoMod]
        },
     TS { label = "final samyoga",
          unicode = "रक्ष्",
          velthuis = "rak.s",
-         phonemes = [P.R, P.A P.NoMod, P.K, P.RetS]
+         phonemes = [S.R, S.A S.NoMod, S.K, S.RetS]
        },
     TS { label = "guttural consonants",
          unicode = "कखगघङ",
          velthuis = "kakhagagha\"na",
-         phonemes = [P.K, a, P.Kh, a, P.G, a, P.Gh, a, P.Ng, a]
+         phonemes = [S.K, a, S.Kh, a, S.G, a, S.Gh, a, S.Ng, a]
        },
     TS { label = "palatal consonants",
          unicode = "चछजझञ",
          velthuis = "cachajajha~na",
-         phonemes = [P.C, a, P.Ch, a, P.J, a, P.Jh, a, P.PalN, a]
+         phonemes = [S.C, a, S.Ch, a, S.J, a, S.Jh, a, S.PalN, a]
        },
     TS { label = "cerebral consonants",
          unicode = "टठडढण",
          velthuis = ".ta.tha.da.dha.na",
-         phonemes = [P.RetT, a, P.RetTh, a, P.RetD, a, P.RetDh, a, P.RetN, a]
+         phonemes = [S.RetT, a, S.RetTh, a, S.RetD, a, S.RetDh, a, S.RetN, a]
        },
     TS { label = "dental consonants",
          unicode = "तथदधन",
          velthuis = "tathadadhana",
-         phonemes = [P.T, a, P.Th, a, P.D, a, P.Dh, a, P.N, a]
+         phonemes = [S.T, a, S.Th, a, S.D, a, S.Dh, a, S.N, a]
        },
     TS { label = "labial consonants",
          unicode = "पफबभम",
          velthuis = "paphababhama",
-         phonemes = [P.P, a, P.Ph, a, P.B, a, P.Bh, a, P.M, a]
+         phonemes = [S.P, a, S.Ph, a, S.B, a, S.Bh, a, S.M, a]
        },
     TS { label = "semivowels",
          unicode = "यरलव",
          velthuis = "yaralava",
-         phonemes = [P.Y, a, P.R, a, P.L, a, P.V, a]
+         phonemes = [S.Y, a, S.R, a, S.L, a, S.V, a]
        },
     TS { label = "sibilants and H",
          unicode = "शषसह",
          velthuis = "\"sa.sasaha",
-         phonemes = [P.PalS, a, P.RetS, a, P.S, a, P.H, a]
+         phonemes = [S.PalS, a, S.RetS, a, S.S, a, S.H, a]
        },
     TS { label = "medial vowels",
          unicode = "ततातितीतुतूतृतॄतॢतॣतेतैतोतौ",
          velthuis = "tataatitiitutuut.rt.Rt.lt.Ltetaitotau",
-         phonemes = [P.T, P.A P.NoMod,
-                     P.T, P.AA P.NoMod,
-                     P.T, P.I P.NoMod,
-                     P.T, P.II P.NoMod,
-                     P.T, P.U P.NoMod,
-                     P.T, P.UU P.NoMod,
-                     P.T, P.VocR P.NoMod,
-                     P.T, P.VocRR P.NoMod,
-                     P.T, P.VocL P.NoMod,
-                     P.T, P.VocLL P.NoMod,
-                     P.T, P.E P.NoMod,
-                     P.T, P.AI P.NoMod,
-                     P.T, P.O P.NoMod,
-                     P.T, P.AU P.NoMod]
+         phonemes = [S.T, S.A S.NoMod,
+                     S.T, S.AA S.NoMod,
+                     S.T, S.I S.NoMod,
+                     S.T, S.II S.NoMod,
+                     S.T, S.U S.NoMod,
+                     S.T, S.UU S.NoMod,
+                     S.T, S.VocR S.NoMod,
+                     S.T, S.VocRR S.NoMod,
+                     S.T, S.VocL S.NoMod,
+                     S.T, S.VocLL S.NoMod,
+                     S.T, S.E S.NoMod,
+                     S.T, S.AI S.NoMod,
+                     S.T, S.O S.NoMod,
+                     S.T, S.AU S.NoMod]
        }
     ]
   ++ initialVowelTests
 
 initialVowelTests =
   map makeInitialVowelTest
-  [("a", "अ", P.A),
-   ("aa", "आ", P.AA),
-   ("i", "इ", P.I),
-   ("ii", "ई", P.II),
-   ("u", "उ", P.U),
-   ("uu", "ऊ", P.UU),
-   (".r", "ऋ", P.VocR),
-   (".R", "ॠ", P.VocRR),
-   (".l", "ऌ", P.VocL),
-   (".L", "ॡ", P.VocLL),
-   ("e", "ए", P.E),
-   ("ai", "ऐ", P.AI),
-   ("o", "ओ", P.O),
-   ("au", "औ", P.AU)]
+  [("a", "अ", S.A),
+   ("aa", "आ", S.AA),
+   ("i", "इ", S.I),
+   ("ii", "ई", S.II),
+   ("u", "उ", S.U),
+   ("uu", "ऊ", S.UU),
+   (".r", "ऋ", S.VocR),
+   (".R", "ॠ", S.VocRR),
+   (".l", "ऌ", S.VocL),
+   (".L", "ॡ", S.VocLL),
+   ("e", "ए", S.E),
+   ("ai", "ऐ", S.AI),
+   ("o", "ओ", S.O),
+   ("au", "औ", S.AU)]
 
-makeInitialVowelTest :: (String, String, P.VowelMod -> P.Phoneme) -> TestSpec
+makeInitialVowelTest :: (String, String, S.VowelMod -> S.Segment) -> TestSpec
 makeInitialVowelTest (v, u, p) =
   TS { label = "initial " ++ v,
        unicode = u ++ "क",
        velthuis = v ++ "ka",
-       phonemes = [p P.NoMod, P.K, P.A P.NoMod] }
+       phonemes = [p S.NoMod, S.K, S.A S.NoMod] }
