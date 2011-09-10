@@ -19,18 +19,32 @@ toPhonemic s =
     Just (s', Just p) -> mcons p (toPhonemic s')
 
 fromPhonemic :: [S.Segment] -> String
-fromPhonemic ps = fromPhonemic' ps []
+fromPhonemic [] = ""
+fromPhonemic [s] = velthuisMap ! s
+fromPhonemic (seg1 : seg2 : segs) =
+  velthuisMap ! seg1 ++
+  computeVowelSep seg1 seg2 ++
+  fromPhonemic (seg2 : segs)
 
--- does phonemic translation, inserting vowelSep before vowel
-fromPhonemic' :: [S.Segment] -> String -> String
-fromPhonemic' [] _ = []
-fromPhonemic' (p:ps) vowelSep
-  | S.isVowel p = vowelSep ++ velthuis ++ (fromPhonemic' ps "{}")
-  | otherwise = velthuis ++ (fromPhonemic' ps "")
-  where velthuis =
-          case (M.lookup p velthuisMap) of
-            Just s -> s
-            Nothing -> error "Velthuis.fromPhonemic: internal error"
+computeVowelSep :: S.Segment -> S.Segment -> String
+computeVowelSep s1 s2 =
+  if requiresVowelSepAfter s1 && requiresVowelSepBefore s2
+  then "{}"
+  else ""
+  where requiresVowelSepAfter (S.A S.NoMod) = True
+        requiresVowelSepAfter (S.AA S.NoMod) = True
+        requiresVowelSepAfter _ = False
+        requiresVowelSepBefore (S.I _) = True
+        requiresVowelSepBefore (S.II _) = True
+        requiresVowelSepBefore (S.U _) = True
+        requiresVowelSepBefore (S.UU _) = True
+        requiresVowelSepBefore _ = False
+
+(!) :: Map S.Segment String -> S.Segment -> String
+map ! segment =
+  case (M.lookup segment map) of
+    Just x -> x
+    Nothing -> error "Velthuis.fromPhonemic: internal error"
 
 -- alist defining mapping between velthuis, phonemic.
 velthuisAList :: [(String, S.Segment)]
