@@ -31,22 +31,29 @@ computeVowelSep s1 s2 =
   if requiresVowelSepAfter s1 && requiresVowelSepBefore s2
   then "{}"
   else ""
-  where requiresVowelSepAfter (S.A S.NoMod) = True
-        requiresVowelSepAfter (S.AA S.NoMod) = True
-        requiresVowelSepAfter _ = False
-        requiresVowelSepBefore (S.I _) = True
-        requiresVowelSepBefore (S.II _) = True
-        requiresVowelSepBefore (S.U _) = True
-        requiresVowelSepBefore (S.UU _) = True
-        requiresVowelSepBefore _ = False
+  where
+    -- segment requires {} after it for hiatus
+    requiresVowelSepAfter :: S.Segment -> Bool
+    requiresVowelSepAfter (S.A S.NoMod) = True
+    requiresVowelSepAfter (S.AA S.NoMod) = True
+    requiresVowelSepAfter _ = False
 
+    -- segment requires {} before it for hiatus
+    requiresVowelSepBefore :: S.Segment -> Bool
+    requiresVowelSepBefore (S.I _) = True
+    requiresVowelSepBefore (S.II _) = True
+    requiresVowelSepBefore (S.U _) = True
+    requiresVowelSepBefore (S.UU _) = True
+    requiresVowelSepBefore _ = False
+
+-- variant of M.! with a more specific error message
 (!) :: Map S.Segment String -> S.Segment -> String
 map ! segment =
   case (M.lookup segment map) of
     Just x -> x
     Nothing -> error "Velthuis.fromSegments: internal error"
 
--- alist defining mapping between velthuis, phonemic.
+-- alist defining mapping between velthuis, segmental.
 velthuisAList :: [(String, S.Segment)]
 velthuisAList =
   addVowels [("k", S.K),
@@ -83,17 +90,17 @@ velthuisAList =
              ("s", S.S),
              ("h", S.H)]
 
--- trie from velthuis encoding to phoneme.  Mapping to Nothing means that
+-- trie from velthuis encoding to segments.  Mapping to Nothing means that
 -- symbol should be silently discarded from output; we use this to implement
 -- {} for hiatus; useful in, say, a{}u or aa{}i.
 velthuisTrie :: Trie Char (Maybe S.Segment)
 velthuisTrie =
-  T.fromList (("{}", Nothing) : map (\(v, p) -> (v, Just p)) velthuisAList)
+  T.fromList (("{}", Nothing) : map (\(v, s) -> (v, Just s)) velthuisAList)
 
--- Map from phoneme to velthuis encoding
+-- Map from segment to velthuis encoding
 velthuisMap :: Map S.Segment String
 velthuisMap =
-  M.fromList (map (\(v, p) -> (p, v)) velthuisAList)
+  M.fromList (map (\(v, s) -> (s, v)) velthuisAList)
 
 -- add vowel translation entries to the supplied list; abstracts over various
 -- vowel modifiers.  We include long vocalic L, even though it's not in the
@@ -120,10 +127,10 @@ addVowels base =
 -- add a single vowel, plus all modifiers, to base alist.
 addVowel :: (String, S.VowelMod -> S.Segment) -> [(String, S.Segment)]
             -> [(String, S.Segment)]
-addVowel (s, vc) base =
-  (s, vc S.NoMod) :
-  (s ++ ".h", vc S.Visarga) :
-  (s ++ ".m", vc S.Anusvara) : base
+addVowel (str, vowelCtor) base =
+  (str, vowelCtor S.NoMod) :
+  (str ++ ".h", vowelCtor S.Visarga) :
+  (str ++ ".m", vowelCtor S.Anusvara) : base
 
 mcons :: a -> Maybe [a] -> Maybe [a]
 mcons _ Nothing = Nothing
