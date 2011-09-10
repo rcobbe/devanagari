@@ -1,4 +1,4 @@
-module Text.Devanagari.Unicode(toPhonemic, fromPhonemic)
+module Text.Devanagari.Unicode(toSegments, fromSegments)
 where
 
 import Data.List (foldl')
@@ -85,31 +85,31 @@ doubleDanda = '\x0965'
 
 -- Convert from unicode, at either beginning of word or after medial vowel.
 -- (Using this function after a medial vowel allows internal hiatus, which
--- means that toPhonemic and fromPhonemic are effectively inverses.  Also,
+-- means that toSegments and fromSegments are effectively inverses.  Also,
 -- since the phonemic representation allows hiatus, supporting it here and in
--- fromPhonemic gives us a unicode representation of any phonemic string.)
+-- fromSegments gives us a unicode representation of any phonemic string.)
 -- Returns Nothing on encoding error:
 --   * unsupported char in input
 --   * medial vowel or virama anywhere except after consonant
 --   * visarga, anusvara anywhere except after vowel
-toPhonemic :: String -> Maybe [S.Segment]
-toPhonemic [] = Just []
-toPhonemic (c : cs)
-  | c `M.member` initVowels = toPhonemicVowel (initVowels M.! c) cs
-  | c `M.member` consonants = toPhonemicConsonant (consonants M.! c) cs
+toSegments :: String -> Maybe [S.Segment]
+toSegments [] = Just []
+toSegments (c : cs)
+  | c `M.member` initVowels = toSegmentsVowel (initVowels M.! c) cs
+  | c `M.member` consonants = toSegmentsConsonant (consonants M.! c) cs
   | otherwise = Nothing
 
 -- Convert from unicode, after detecting a vowel (either initial or medial).
 -- Handle any vowel modifiers, then continue on.  First arg must be
 -- constructor corresponding to vowel that we just saw.
-toPhonemicVowel :: (S.VowelMod -> S.Segment) -> String -> Maybe [S.Segment]
-toPhonemicVowel v [] = Just [v S.NoMod]
-toPhonemicVowel v s@(c : cs)
-  | c == visarga = (v S.Visarga) `mcons` toPhonemic cs
-  | c == anusvara = (v S.Anusvara) `mcons` toPhonemic cs
-  | otherwise = (v S.NoMod) `mcons` toPhonemic s
-                -- use of toPhonemic in last case allows hiatus; to signal
-                -- error, use toPhonemicNoVowel.
+toSegmentsVowel :: (S.VowelMod -> S.Segment) -> String -> Maybe [S.Segment]
+toSegmentsVowel v [] = Just [v S.NoMod]
+toSegmentsVowel v s@(c : cs)
+  | c == visarga = (v S.Visarga) `mcons` toSegments cs
+  | c == anusvara = (v S.Anusvara) `mcons` toSegments cs
+  | otherwise = (v S.NoMod) `mcons` toSegments s
+                -- use of toSegments in last case allows hiatus; to signal
+                -- error, use toSegmentsNoVowel.
 
 -- Convert from unicode, after seeing a consonant.  Handle complicated cases,
 -- then continue on.  First arg is consonant ctor.  Cases:
@@ -118,28 +118,28 @@ toPhonemicVowel v s@(c : cs)
 --         consonant.  (Vowels after viramas disallowed.)
 --   3. consonant: add implicit a, then continue with following consonant.
 --   4. visarga, anusvara: add implicit a with modifier, then continue.
---   5. medial vowel: bare consonant, then call toPhonemicVowel to handle
+--   5. medial vowel: bare consonant, then call toSegmentsVowel to handle
 --          modifiers after vowel.
---   6. initial vowel: add implicit a, then continue with toPhonemic to handle
+--   6. initial vowel: add implicit a, then continue with toSegments to handle
 --          hiatus.
-toPhonemicConsonant :: S.Segment -> String -> Maybe [S.Segment]
-toPhonemicConsonant p [] = Just [p, S.A S.NoMod]
-toPhonemicConsonant p s@(c : cs)
-  | c == virama = p `mcons` toPhonemicNoVowel cs
-  | c `M.member` consonants = mcons p (mcons (S.A S.NoMod) (toPhonemic s))
-  | c == visarga = mcons p (mcons (S.A S.Visarga) (toPhonemic cs))
-  | c == anusvara = mcons p (mcons (S.A S.Anusvara) (toPhonemic cs))
+toSegmentsConsonant :: S.Segment -> String -> Maybe [S.Segment]
+toSegmentsConsonant p [] = Just [p, S.A S.NoMod]
+toSegmentsConsonant p s@(c : cs)
+  | c == virama = p `mcons` toSegmentsNoVowel cs
+  | c `M.member` consonants = mcons p (mcons (S.A S.NoMod) (toSegments s))
+  | c == visarga = mcons p (mcons (S.A S.Visarga) (toSegments cs))
+  | c == anusvara = mcons p (mcons (S.A S.Anusvara) (toSegments cs))
   | c `M.member` medialVowels =
-    p `mcons` toPhonemicVowel (medialVowels M.! c) cs
-  | c `M.member` initVowels = mcons p (mcons (S.A S.NoMod) (toPhonemic s))
+    p `mcons` toSegmentsVowel (medialVowels M.! c) cs
+  | c `M.member` initVowels = mcons p (mcons (S.A S.NoMod) (toSegments s))
   | otherwise = Nothing
 
 -- Convert from unicode, after seeing consonant + virama.  Must find consonant
 -- or end of word here.
-toPhonemicNoVowel :: String -> Maybe [S.Segment]
-toPhonemicNoVowel [] = Just []
-toPhonemicNoVowel (c : cs)
-  | c `M.member` consonants = toPhonemicConsonant (consonants M.! c) cs
+toSegmentsNoVowel :: String -> Maybe [S.Segment]
+toSegmentsNoVowel [] = Just []
+toSegmentsNoVowel (c : cs)
+  | c `M.member` consonants = toSegmentsConsonant (consonants M.! c) cs
   | otherwise = Nothing
 
 mcons :: a -> Maybe [a] -> Maybe [a]
@@ -215,23 +215,23 @@ consonants = M.fromList (
    (sa, S.S),
    (ha, S.H)])
 
-fromPhonemic :: [S.Segment] -> String
-fromPhonemic [] = []
-fromPhonemic (p : ps)
+fromSegments :: [S.Segment] -> String
+fromSegments [] = []
+fromSegments (p : ps)
   | p `M.member` phonemicInitVowels =
-    (phonemicInitVowels M.! p) ++ fromPhonemic ps
+    (phonemicInitVowels M.! p) ++ fromSegments ps
   | p `M.member` phonemicConsonants =
-    (phonemicConsonants M.! p) : fromPhonemicAfterConsonant ps
-  | otherwise = error "fromPhonemic internal error"
+    (phonemicConsonants M.! p) : fromSegmentsAfterConsonant ps
+  | otherwise = error "fromSegments internal error"
 
-fromPhonemicAfterConsonant :: [S.Segment] -> String
-fromPhonemicAfterConsonant [] = [virama]
-fromPhonemicAfterConsonant (p : ps)
+fromSegmentsAfterConsonant :: [S.Segment] -> String
+fromSegmentsAfterConsonant [] = [virama]
+fromSegmentsAfterConsonant (p : ps)
   | p `M.member` phonemicMedialVowels =
-    (phonemicMedialVowels M.! p) ++ fromPhonemic ps
+    (phonemicMedialVowels M.! p) ++ fromSegments ps
   | p `M.member` phonemicConsonants =
-    virama : (phonemicConsonants M.! p) : fromPhonemicAfterConsonant ps
-  | otherwise = error "fromPhonemic internal error"
+    virama : (phonemicConsonants M.! p) : fromSegmentsAfterConsonant ps
+  | otherwise = error "fromSegments internal error"
 
 phonemicInitVowels :: Map S.Segment String
 phonemicInitVowels =

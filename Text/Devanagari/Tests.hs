@@ -30,10 +30,10 @@ tests =
 -- produces U-to-P, P-to-U, V-to-P, P-to-V tests.
 makeTest :: TestSpec -> (Test, Test, Test, Test)
 makeTest (TS { label = l, unicode = u, velthuis = v, phonemes = p }) =
-  (l ~: (U.toPhonemic u ~?= Just p),
-   l ~: (U.fromPhonemic p ~?= u),
-   l ~: (V.toPhonemic v ~?= Just p),
-   l ~: (V.fromPhonemic p ~?= v))
+  (l ~: (U.toSegments u ~?= Just p),
+   l ~: (U.fromSegments p ~?= u),
+   l ~: (V.toSegments v ~?= Just p),
+   l ~: (V.fromSegments p ~?= v))
 
 -- label, Unicode, phonemes
 testSpecs :: [TestSpec]

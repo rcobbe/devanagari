@@ -1,4 +1,4 @@
-module Text.Devanagari.Velthuis(toPhonemic, fromPhonemic)
+module Text.Devanagari.Velthuis(toSegments, fromSegments)
 where
 
 -- originally thought I'd need to avoid "n "s for use with Racket/Scribble --
@@ -10,21 +10,21 @@ import Data.Trie (Trie)
 import qualified Data.Trie as T
 import qualified Text.Devanagari.Segments as S
 
-toPhonemic :: String -> Maybe [S.Segment]
-toPhonemic [] = Just []
-toPhonemic s =
-  case (T.matchPrefix velthuisTrie s) of
+toSegments :: String -> Maybe [S.Segment]
+toSegments [] = Just []
+toSegments str =
+  case (T.matchPrefix velthuisTrie str) of
     Nothing -> Nothing
-    Just (s', Nothing) -> toPhonemic s'
-    Just (s', Just p) -> mcons p (toPhonemic s')
+    Just (str', Nothing) -> toSegments str' -- matched {}, so no output
+    Just (str', Just seg) -> mcons seg (toSegments str')
 
-fromPhonemic :: [S.Segment] -> String
-fromPhonemic [] = ""
-fromPhonemic [s] = velthuisMap ! s
-fromPhonemic (seg1 : seg2 : segs) =
+fromSegments :: [S.Segment] -> String
+fromSegments [] = ""
+fromSegments [s] = velthuisMap ! s
+fromSegments (seg1 : seg2 : segs) =
   velthuisMap ! seg1 ++
   computeVowelSep seg1 seg2 ++
-  fromPhonemic (seg2 : segs)
+  fromSegments (seg2 : segs)
 
 computeVowelSep :: S.Segment -> S.Segment -> String
 computeVowelSep s1 s2 =
@@ -44,7 +44,7 @@ computeVowelSep s1 s2 =
 map ! segment =
   case (M.lookup segment map) of
     Just x -> x
-    Nothing -> error "Velthuis.fromPhonemic: internal error"
+    Nothing -> error "Velthuis.fromSegments: internal error"
 
 -- alist defining mapping between velthuis, phonemic.
 velthuisAList :: [(String, S.Segment)]
