@@ -86,8 +86,8 @@ doubleDanda = '\x0965'
 -- Convert from unicode, at either beginning of word or after medial vowel.
 -- (Using this function after a medial vowel allows internal hiatus, which
 -- means that toSegments and fromSegments are effectively inverses.  Also,
--- since the phonemic representation allows hiatus, supporting it here and in
--- fromSegments gives us a unicode representation of any phonemic string.)
+-- since the segment representation allows hiatus, supporting it here and in
+-- fromSegments gives us a unicode representation of any segmental string.)
 -- Returns Nothing on encoding error:
 --   * unsupported char in input
 --   * medial vowel or virama anywhere except after consonant
@@ -228,25 +228,27 @@ consonants = M.fromList (
 
 fromSegments :: [S.Segment] -> String
 fromSegments [] = []
-fromSegments (p : ps)
-  | p `M.member` phonemicInitVowels =
-    (phonemicInitVowels M.! p) ++ fromSegments ps
-  | p `M.member` phonemicConsonants =
-    (phonemicConsonants M.! p) : fromSegmentsAfterConsonant ps
+fromSegments (seg : segs)
+  | seg `M.member` initVowelSegments =
+    (initVowelSegments M.! seg) ++ fromSegments segs
+  | seg `M.member` consonantSegments =
+    (consonantSegments M.! seg) : fromSegmentsAfterConsonant segs
   | otherwise = error "fromSegments internal error"
 
 fromSegmentsAfterConsonant :: [S.Segment] -> String
 fromSegmentsAfterConsonant [] = [virama]
-fromSegmentsAfterConsonant (p : ps)
-  | p `M.member` phonemicMedialVowels =
-    (phonemicMedialVowels M.! p) ++ fromSegments ps
-  | p `M.member` phonemicConsonants =
-    virama : (phonemicConsonants M.! p) : fromSegmentsAfterConsonant ps
+fromSegmentsAfterConsonant (seg : segs)
+  | seg `M.member` medialVowelSegments =
+    (medialVowelSegments M.! seg) ++ fromSegments segs
+  | seg `M.member` consonantSegments =
+    virama : (consonantSegments M.! seg) : fromSegmentsAfterConsonant segs
   | otherwise = error "fromSegments internal error"
 
-phonemicInitVowels :: Map S.Segment String
-phonemicInitVowels =
-  foldl' addPhonemicVowelEntry M.empty [
+-- maps vowel segments to their word-initial unicode equivalents, including all
+-- vowel modifiers.
+initVowelSegments :: Map S.Segment String
+initVowelSegments =
+  foldl' addSegmentVowelEntry M.empty [
     (S.A, [initA]),
     (S.AA, [initAA]),
     (S.I, [initI]),
@@ -262,9 +264,11 @@ phonemicInitVowels =
     (S.O, [initO]),
     (S.AU, [initAU])]
 
-phonemicMedialVowels :: Map S.Segment String
-phonemicMedialVowels =
-  foldl' addPhonemicVowelEntry M.empty [
+-- maps vowel segments to their medial unicode equivalents, including all vowel
+-- modifiers.
+medialVowelSegments :: Map S.Segment String
+medialVowelSegments =
+  foldl' addSegmentVowelEntry M.empty [
     (S.A, []),
     (S.AA, [combAA]),
     (S.I, [combI]),
@@ -280,16 +284,23 @@ phonemicMedialVowels =
     (S.O, [combO]),
     (S.AU, [combAU])]
 
-addPhonemicVowelEntry :: Map S.Segment String
-                         -> (S.VowelMod -> S.Segment, String)
-                         -> Map S.Segment String
-addPhonemicVowelEntry m (p, u) =
-  M.insert (p S.NoMod) u (
-    M.insert (p S.Visarga) (u ++ [visarga]) (
-       M.insert (p S.Anusvara) (u ++ [anusvara]) m))
+-- addSegmentVowelEntry map (vowelCtor, unicodeStr)
+-- Extends map with all 3 entries corresponding to vowelCtor and unicodeStr: no
+-- mod, visarga, anusvara.   We expect a string rather than a char for the
+-- unicode representation, because medial A has an empty unicode
+-- representation, and [Char] is easier to deal with than a Maybe Char in this
+-- case.
+addSegmentVowelEntry :: Map S.Segment String
+                        -> (S.VowelMod -> S.Segment, String)
+                        -> Map S.Segment String
+addSegmentVowelEntry map (vowelCtor, unicode) =
+  M.insert (vowelCtor S.NoMod) unicode (
+    M.insert (vowelCtor S.Visarga) (unicode ++ [visarga]) (
+       M.insert (vowelCtor S.Anusvara) (unicode ++ [anusvara]) map))
 
-phonemicConsonants :: Map S.Segment Char
-phonemicConsonants = M.fromList [
+-- maps consonantal segments to their unicode representations
+consonantSegments :: Map S.Segment Char
+consonantSegments = M.fromList [
   (S.K, ka),
   (S.Kh, kha),
   (S.G, ga),
