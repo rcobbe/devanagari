@@ -94,60 +94,68 @@ doubleDanda = '\x0965'
 --   * visarga, anusvara anywhere except after vowel
 toSegments :: String -> Maybe [S.Segment]
 toSegments [] = Just []
-toSegments (c : cs)
-  | c `M.member` initVowels = toSegmentsVowel (initVowels M.! c) cs
-  | c `M.member` consonants = toSegmentsConsonant (consonants M.! c) cs
+toSegments (char : chars)
+  | char `M.member` initVowelCtors =
+    toSegmentsVowel (initVowelCtors M.! char) chars
+  | char `M.member` consonants =
+    toSegmentsConsonant (consonants M.! char) chars
   | otherwise = Nothing
 
--- Convert from unicode, after detecting a vowel (either initial or medial).
--- Handle any vowel modifiers, then continue on.  First arg must be
+-- Convert from unicode, after detecting a Unicode vowel (either initial or
+-- medial).  Handle any vowel modifiers, then continue on.  First arg must be
 -- constructor corresponding to vowel that we just saw.
 toSegmentsVowel :: (S.VowelMod -> S.Segment) -> String -> Maybe [S.Segment]
-toSegmentsVowel v [] = Just [v S.NoMod]
-toSegmentsVowel v s@(c : cs)
-  | c == visarga = (v S.Visarga) `mcons` toSegments cs
-  | c == anusvara = (v S.Anusvara) `mcons` toSegments cs
-  | otherwise = (v S.NoMod) `mcons` toSegments s
-                -- use of toSegments in last case allows hiatus; to signal
-                -- error, use toSegmentsNoVowel.
+toSegmentsVowel vowelCtor [] = Just [vowelCtor S.NoMod]
+toSegmentsVowel vowelCtor str@(char : chars)
+  | char == visarga = (vowelCtor S.Visarga) `mcons` toSegments chars
+  | char == anusvara = (vowelCtor S.Anusvara) `mcons` toSegments chars
+  | otherwise =
+    -- use of toSegments in this case allows vowel hiatus; to signal error on
+    -- consecutive vowels instead of hiatus, use toSegmentsNoVowel.
+    (vowelCtor S.NoMod) `mcons` toSegments str
 
--- Convert from unicode, after seeing a consonant.  Handle complicated cases,
--- then continue on.  First arg is consonant ctor.  Cases:
+-- Convert from unicode, after seeing a Unicode consonant.  Handle complicated
+-- cases, then continue on.  First arg is consonant segment.  Cases:
 --   1. end of word: add implicit a
 --   2. virama: bare consonant, then look for either end of word or another
 --         consonant.  (Vowels after viramas disallowed.)
 --   3. consonant: add implicit a, then continue with following consonant.
 --   4. visarga, anusvara: add implicit a with modifier, then continue.
---   5. medial vowel: bare consonant, then call toSegmentsVowel to handle
+--   5. medial vowel: add bare consonant, then call toSegmentsVowel to handle
 --          modifiers after vowel.
 --   6. initial vowel: add implicit a, then continue with toSegments to handle
 --          hiatus.
 toSegmentsConsonant :: S.Segment -> String -> Maybe [S.Segment]
-toSegmentsConsonant p [] = Just [p, S.A S.NoMod]
-toSegmentsConsonant p s@(c : cs)
-  | c == virama = p `mcons` toSegmentsNoVowel cs
-  | c `M.member` consonants = mcons p (mcons (S.A S.NoMod) (toSegments s))
-  | c == visarga = mcons p (mcons (S.A S.Visarga) (toSegments cs))
-  | c == anusvara = mcons p (mcons (S.A S.Anusvara) (toSegments cs))
-  | c `M.member` medialVowels =
-    p `mcons` toSegmentsVowel (medialVowels M.! c) cs
-  | c `M.member` initVowels = mcons p (mcons (S.A S.NoMod) (toSegments s))
+toSegmentsConsonant cnsnt [] = Just [cnsnt, S.A S.NoMod]
+toSegmentsConsonant cnsnt str@(char : chars)
+  | char == virama = cnsnt `mcons` toSegmentsNoVowel chars
+  | char `M.member` consonants =
+    mcons cnsnt (mcons (S.A S.NoMod) (toSegments str))
+  | char == visarga = mcons cnsnt (mcons (S.A S.Visarga) (toSegments chars))
+  | char == anusvara = mcons cnsnt (mcons (S.A S.Anusvara) (toSegments chars))
+  | char `M.member` medialVowels =
+    cnsnt `mcons` toSegmentsVowel (medialVowels M.! char) chars
+  | char `M.member` initVowelCtors =
+    mcons cnsnt (mcons (S.A S.NoMod) (toSegments str))
   | otherwise = Nothing
 
 -- Convert from unicode, after seeing consonant + virama.  Must find consonant
 -- or end of word here.
 toSegmentsNoVowel :: String -> Maybe [S.Segment]
 toSegmentsNoVowel [] = Just []
-toSegmentsNoVowel (c : cs)
-  | c `M.member` consonants = toSegmentsConsonant (consonants M.! c) cs
+toSegmentsNoVowel (char : chars)
+  | char `M.member` consonants = toSegmentsConsonant (consonants M.! char) chars
   | otherwise = Nothing
 
+-- half-lifting of cons into the Maybe.
 mcons :: a -> Maybe [a] -> Maybe [a]
 mcons _ Nothing = Nothing
 mcons x (Just xs) = Just (x:xs)
 
-initVowels :: Map Char (S.VowelMod -> S.Segment)
-initVowels = M.fromList (
+-- maps unicode chars denoting word-initial Devanagari vowels to segment
+-- constructors (parameterized over vowel modifiers).
+initVowelCtors :: Map Char (S.VowelMod -> S.Segment)
+initVowelCtors = M.fromList (
   [(initA, S.A),
    (initAA, S.AA),
    (initI, S.I),
@@ -163,6 +171,8 @@ initVowels = M.fromList (
    (initO, S.O),
    (initAU, S.AU)])
 
+-- maps unicode chars denoting medial Devanagari vowels to segment constructors
+-- (parameterized over vowel modifiers)
 medialVowels :: Map Char (S.VowelMod -> S.Segment)
 medialVowels = M.fromList (
   [(combAA, S.AA),
@@ -179,6 +189,7 @@ medialVowels = M.fromList (
    (combO, S.O),
    (combAU, S.AU)])
 
+-- maps unicode chars denoting Devanagari consonants to segments.
 consonants :: Map Char S.Segment
 consonants = M.fromList (
   [(ka, S.K),
