@@ -6,19 +6,19 @@ Reads input from stdin; writes output to stdout.  Input should be bare Unicode
 or Velthuis string, terminated by newline, no other leading or trailing
 whitespace.  Send EOF to complete.  Output has one of the following forms:
 
-  (ok <result>)
+  OK <result>
 
-        result is symbol, delimited with sticks (to avoid mucking about with
-        escaping quotes); convert string.
+    OK is at the beginning of the line, followed by a single space, then one or
+    more result characters, followed immediately by a newline.
 
-  (error <message>)
+  ERROR <message>
 
-        message is string describing failure.
-
-In either case, output followed by newline.
+    ERROR is at the beginning of the line, followed by a single space, then a
+    new-line terminated string describing the error condition.
 -}
 
-import qualified System.Exit as Exit
+import qualified Control.Exception as Exception
+
 import qualified System.Environment.UTF8 as Env
 -- Env.getArgs returns argv[1], argv[2], ...
 import System.IO
@@ -35,19 +35,22 @@ main =
        ["--to-unicode"] -> mainLoop velthuisToUnicode
        _ -> printUsage
 
+-- | The main loop of the conversion program.  Repeatedly reads lines from
+-- stdin, applies the given conversion function, and writes output as
+-- specified above, until detecting EOF on stdin.
 mainLoop :: (String -> Maybe String) -> IO ()
-mainLoop convert = doIfNotEof (
+mainLoop convert = repeatUntilEof (
   do line <- getLine
      case convert line of
        Just result -> putStrLn ("(ok |" ++ result ++ "|)")
        Nothing -> putStrLn "(error \"invalid unicode\")"
-     mainLoop convert
-     )
+  )
 
-doIfNotEof :: IO () -> IO ()
-doIfNotEof action =
+-- | Repeatedly executes the given action until it detects EOF on stdin.
+repeatUntilEof :: IO () -> IO ()
+repeatUntilEof action =
   do eof <- isEOF
-     if eof then return () else action
+     if eof then return () else action >> repeatUntilEof action
 
 unicodeToVelthuis :: String -> Maybe String
 unicodeToVelthuis str =
@@ -59,5 +62,6 @@ velthuisToUnicode str =
 
 printUsage :: IO ()
 printUsage =
+  -- XXX can we query for executable name instead of hardcoding?
   do putStrLn "devtrans: convert between Velthuis & Unicode representations"
      putStrLn "Usage: devtrans { --to-velthuis | --to-unicode }"
