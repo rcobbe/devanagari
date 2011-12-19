@@ -58,6 +58,8 @@ data Segment = A VowelMod
              | H
                deriving (Eq, Show, Ord)
 
+-- XXX why NoMod instead of Maybe?  convenient for parsing, but is that
+-- sufficient justification?
 data VowelMod = NoMod | Visarga | Anusvara
               deriving (Eq, Show, Ord)
 

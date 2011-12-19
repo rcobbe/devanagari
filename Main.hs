@@ -23,27 +23,29 @@ import qualified System.Environment.UTF8 as Env
 -- Env.getArgs returns argv[1], argv[2], ...
 import System.IO
 
-import qualified Text.Devanagari.Segments as S
-import qualified Text.Devanagari.Unicode as U
-import qualified Text.Devanagari.Velthuis as V
+import qualified Text.Devanagari.Unicode as Unicode
+import qualified Text.Devanagari.Velthuis as Velthuis
 
 main :: IO ()
 main =
   do args <- Env.getArgs
      case args of
-       ["--to-velthuis"] -> mainLoop unicodeToVelthuis
-       ["--to-unicode"] -> mainLoop velthuisToUnicode
+       ["--to-velthuis"] ->
+         mainLoop (Velthuis.fromSegments . Unicode.toSegments)
+       ["--to-unicode"] ->
+         mainLoop (Unicode.fromSegments . Velthuis.toSegments)
        _ -> printUsage
 
 -- | The main loop of the conversion program.  Repeatedly reads lines from
 -- stdin, applies the given conversion function, and writes output as
 -- specified above, until detecting EOF on stdin.
-mainLoop :: (String -> Maybe String) -> IO ()
+mainLoop :: (String -> String) -> IO ()
 mainLoop convert = repeatUntilEof (
   do line <- getLine
-     case convert line of
-       Just result -> putStrLn ("(ok |" ++ result ++ "|)")
-       Nothing -> putStrLn "(error \"invalid unicode\")"
+     result <- Exception.try (return (convert line))
+     case result of
+       Left exn -> putStrLn ("ERROR " ++ show exn)
+       Right val -> putStrLn ("OK " ++ val)
   )
 
 -- | Repeatedly executes the given action until it detects EOF on stdin.
@@ -52,14 +54,7 @@ repeatUntilEof action =
   do eof <- isEOF
      if eof then return () else action >> repeatUntilEof action
 
-unicodeToVelthuis :: String -> Maybe String
-unicodeToVelthuis str =
-  fmap V.fromSegments (U.toSegments str)
-
-velthuisToUnicode :: String -> Maybe String
-velthuisToUnicode str =
-  fmap U.fromSegments (U.toSegments str)
-
+-- | Prints usage description to stdout.
 printUsage :: IO ()
 printUsage =
   -- XXX can we query for executable name instead of hardcoding?
