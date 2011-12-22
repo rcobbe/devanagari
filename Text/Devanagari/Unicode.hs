@@ -6,22 +6,62 @@ module Text.Devanagari.Unicode(toSegments, fromSegments) where
 -- XXX can we get rid of the qualification in the haddock comment at top of
 -- file?
 
+-- XXX fix parser.   See below:
+
+{-
+devanagari:
+  - anusvara, visarga on [a]
+  - consonant cluster ending word
+  - word consisting of single (initial) vowel
+
+syllable rule seems to be
+  optional initial vowel
+  zero or more consonant-virama pairs
+  optional (consonant w/o virama followed by (implicit) vowel with
+    modifiers)
+
+this should handle words that end with a consonant
+
+tricky things to test:
+  - word consisting only of a single vowel
+  - vowel hiatus: double, triple; intial, medial, final
+  - vowel modifiers:
+    - according to TextEdit, anusvara, visarga must always follow vowel,
+      initial or otherwise
+    - initial, medial, final
+    - in hiatus (first, middle, last)
+    - on implicit short-a
+    - after virama (should signal error)
+  - initial vowel after consonant (should signal error)
+-}
+
 import Text.Parsec.Char
 import Text.Parsec.Combinator
+import Text.Parsec.Error
 import Text.Parsec.Prim
 import Text.Parsec.String
 
 import Text.Devanagari.Segments
 
+-- | Converts a Unicode string to a list of segments.  On error throws one of
+-- the following:
+-- *
 toSegments :: String -> [Segment]
-toSegments = undefined
+toSegments s =
+  case parse unicode "" s of
+    Left error -> undefined
+    Right segments -> segments
 
 fromSegments :: [Segment] -> String
 fromSegments = undefined
 
 unicode :: GenParser Char st [Segment]
 unicode =
-  do syllables <- manyTill unicodeSyllable eof
+  (do v <- initialVowel
+
+
+  do syllables <- manyTill
+                  unicodeSyllable eof
      return $ concat syllables
 
 unicodeSyllable :: GenParser char st [Segment]
@@ -33,11 +73,10 @@ unicodeSyllable =
 
 unicodeSyllableCoda :: GenParser char st [Segment]
 unicodeSyllableCoda =
-  (unicodeBareConsonant >>= \x -> [x, A])
-  <|>
-  (unicodeMedialVowel   >>= \v -> [v])
-  <|>
-  (eof                  >> return [])
+  do cnsnt <- unicodeBareConsonant
+     -- optional because the word might end with a consonant
+     vowel <- option (A NoMod) unicodeMedialVowel
+     return [cnsnt, vowel]
 
 unicodeInitialVowel :: GenParser Char st [Segment]
 unicodeInitialVowel =
@@ -83,11 +122,9 @@ unicodeVowelModifier =
 
 unicodeClusterConsonants :: GenParser Char st [Segment]
 unicodeClusterConsonants =
-  try (do cnsnt <- unicodeBareConsonant
-          char virama
-          rest <- unicodeClusterConsonants
-          return $ cnsnt : rest)
-  <|> return []
+  many (do cnsnt <- unicodeBareConsonant
+           char virama
+           return cnsnt)
 
 unicodeBareConsonant :: GenParser Char st Segment
 unicodeBareConsonant =
