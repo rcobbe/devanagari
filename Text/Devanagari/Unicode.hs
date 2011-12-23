@@ -6,8 +6,6 @@ module Text.Devanagari.Unicode(toSegments, fromSegments) where
 -- XXX can we get rid of the qualification in the haddock comment at top of
 -- file?
 
--- XXX fix parser.   See below:
-
 {-
 devanagari:
   - anusvara, visarga on [a]
@@ -35,12 +33,15 @@ tricky things to test:
   - initial vowel after consonant (should signal error)
 -}
 
+import Control.Exception (throw)
+
 import Text.Parsec.Char
 import Text.Parsec.Combinator
 import Text.Parsec.Error
 import Text.Parsec.Prim
 import Text.Parsec.String
 
+import Text.Devanagari.Exception
 import Text.Devanagari.Segments
 
 -- | Converts a Unicode string to a list of segments.  On error throws one of
@@ -49,37 +50,65 @@ import Text.Devanagari.Segments
 toSegments :: String -> [Segment]
 toSegments s =
   case parse unicode "" s of
-    Left error -> undefined
+    Left error ->
+      case (errorMessages error) of
+        [] -> throw $ BadUnicode s "unknown error"
+        (msg : _) -> throw $ BadUnicode s (messageString msg)
     Right segments -> segments
 
 fromSegments :: [Segment] -> String
 fromSegments = undefined
 
+-- Character classes:
+--    initial vowels
+--    medial vowels
+--    vowel modifiers (anusvara, visarga)
+--    consonants
+--    virama
+--
+-- Constraints:
+--  1) Assume that a vowel may have at most one modifier.  It's not clear
+--     whether, in original text, an anusvara and a visarga may appear on the
+--     same vowel.  If this can happen, then the anusvara should appear
+--     first in the Unicode stream, according to Apple's rendering logic.
+--  2) Initial vowels may not appear after a virama.  Appearing after a medial
+--     vowel or consonant, possibly with vowel modifier, indicates hiatus, with
+--     short a in the latte case.
+--  3) Medial vowels must appear after a consonant, with no modifiers allowed.
+--     (A modifier would indicate an implicit [a], leading to an illegal
+--     hiatus.)
+--  4) Vowel modifiers may not appear after viramas.  Modifiers on a consonant
+--     imply an [a].
+--  5) Consonants may not appear after other consonants; use a virama for
+--     clusters.
+--  6) Viramas may appear only on consonants.
+--
+-- Positively:
+--  word ::= (InitVowel VowelMod?)* Syllable* (Consonant Virama)*
+--  Syllable ::=
+--    (Consonant Virama)* Consonant MedialVowel? VowelMod?
+--    (InitVowel VowelMod?)*
+-- need to ensure that word isn't empty --
+--  word ::= (InitVowel VowelMod?)+ Syllable* (Consonant Virama)*
+--         | (InitVowel VowelMod?)* Syllable+ (Consonant Virama)*
+
 unicode :: GenParser Char st [Segment]
 unicode =
-  (do v <- initialVowel
+  try (do initVowels <- many1 initVowelWithMod
+          syllables <- many (try syllable)
+          coda <- many consonantVirama
+          eof
+          return $ concat (initVowels : syllables ++ [coda]))
+  <|>
+  (do initVowels <- many initVowelWithMod
+      syllables <- many1 (try syllable)
+      coda <- many consonantVirama
+      eof
+      return $ concat (initVowels : syllables ++ [coda]))
+  <?> "initial vowel or consonant"
 
-
-  do syllables <- manyTill
-                  unicodeSyllable eof
-     return $ concat syllables
-
-unicodeSyllable :: GenParser char st [Segment]
-unicodeSyllable =
-  do initVowel <- option [] unicodeInitialVowel
-     clusterOnset <- unicodeClusterConsonants
-     syllableCoda <- unicodeSyllableCoda
-     return concat [initVowel, clusterOnset, syllableCoda]
-
-unicodeSyllableCoda :: GenParser char st [Segment]
-unicodeSyllableCoda =
-  do cnsnt <- unicodeBareConsonant
-     -- optional because the word might end with a consonant
-     vowel <- option (A NoMod) unicodeMedialVowel
-     return [cnsnt, vowel]
-
-unicodeInitialVowel :: GenParser Char st [Segment]
-unicodeInitialVowel =
+initVowelWithMod :: GenParser Char st Segment
+initVowelWithMod =
   do vowelCtor <- charTranslate [(initA, A),
                                  (initAA, AA),
                                  (initI, I),
@@ -94,40 +123,57 @@ unicodeInitialVowel =
                                  (initAI, AI),
                                  (initO, O),
                                  (initAU, AU)]
-     mod <- option NoMod unicodeVowelModifier
-     return [vowelCtor mod]
+     mod <- vowelModifier
+     return $ vowelCtor mod
+  <?> "initial vowel"
 
-unicodeMedialVowel :: GenParser Char st [Segment]
-unicodeMedialVowel =
-  do vowelCtor <- charTranslate [(combAA, AA),
-                                 (combI, I),
-                                 (combII, II),
-                                 (combU, U),
-                                 (combUU, UU),
-                                 (combVocR, VocR),
-                                 (combVocRR, VocRR),
-                                 (combVocL, VocL),
-                                 (combVocLL, VocLL),
-                                 (combE, E),
-                                 (combAI, AI),
-                                 (combO, O),
-                                 (combAU, AU)]
-     mod <- option NoMod unicodeVowelModifier
-     return [vowelCtor mod]
+syllable :: GenParser Char st [Segment]
+syllable =
+  do onset <- many (try consonantVirama)
+     cnsnt <- consonant
+     medVowel <- optionMaybe medialVowel
+     mod <- option NoMod vowelModifier
+     hiatus <- many initVowelWithMod
+     return $ concat [onset,
+                      [cnsnt],
+                      case medVowel of
+                        Just vc -> [vc mod]
+                        Nothing -> [A mod],
+                      hiatus]
+  <?> "syllable"
 
-unicodeVowelModifier :: GenParser Char st VowelMod
-unicodeVowelModifier =
-  charTranslate [(visarga, Visarga), (anusvara, Anusvara)]
-  <|> return NoMod
+medialVowel :: GenParser Char st (VowelMod -> Segment)
+medialVowel =
+  charTranslate [(combAA, AA),
+                 (combI, I),
+                 (combII, II),
+                 (combU, U),
+                 (combUU, UU),
+                 (combVocR, VocR),
+                 (combVocRR, VocRR),
+                 (combVocL, VocL),
+                 (combVocLL, VocLL),
+                 (combE, E),
+                 (combAI, AI),
+                 (combO, O),
+                 (combAU, AU)]
+  <?> "medial vowel"
 
-unicodeClusterConsonants :: GenParser Char st [Segment]
-unicodeClusterConsonants =
-  many (do cnsnt <- unicodeBareConsonant
-           char virama
-           return cnsnt)
+vowelModifier :: GenParser Char st VowelMod
+vowelModifier =
+  (charTranslate [(visarga, Visarga), (anusvara, Anusvara)]
+   <|> return NoMod)
+  <?> "vowel modifier"
 
-unicodeBareConsonant :: GenParser Char st Segment
-unicodeBareConsonant =
+consonantVirama :: GenParser Char st Segment
+consonantVirama =
+  do c <- consonant
+     char virama <?> "virama"
+     return c
+  <?> "consonant with virama"
+
+consonant :: GenParser Char st Segment
+consonant =
   charTranslate [(ka, K),
                  (kha, Kh),
                  (ga, G),
@@ -161,10 +207,11 @@ unicodeBareConsonant =
                  (retroSa, RetS),
                  (sa, S),
                  (ha, H)]
+  <?> "consonant"
 
 charTranslate :: [(Char, a)] -> GenParser Char st a
 charTranslate [] = parserZero
-charTranslate [(c, val) : rest] =
+charTranslate ((c, val) : rest) =
   (char c >> return val)
   <|> charTranslate rest
 
