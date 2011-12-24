@@ -13,6 +13,10 @@ import qualified Text.Devanagari.Velthuis as V
 
 import qualified Text.Devanagari.Exception as E
 
+-- XXX fix hiatus: add vowel prefix to velthuis lookup map rather than mucking
+-- about with isVowel predicate.  That way, we only stick {} after a or aa, and
+-- only without visarga, anusvara.
+
 -- | Test case that asserts that the two arguments are equal and evaluating the
 -- left side does not throw a Devanagari exception.
 (!?=) :: (Eq a, Show a) => a -> a -> Assertion
@@ -47,7 +51,7 @@ tests =
   -- let (u2s, s2u, v2s, s2v) = unzip4 (map makeTest testSpecs)
   let u2s = map makeTest testSpecs
   in "Text.Devanagari tests" ~:
-     ["Unicode to Segments" ~: u2s]
+     ["Unicode to Segments" ~: u2s] ++ [unicodeErrorTests]
 
 makeTest :: TestSpec -> Test
 makeTest (TS { label = l, unicode = u, segments = s }) =
@@ -107,10 +111,50 @@ testSpecs =
         velthuis = "si.mha",
         segments = [S, I Anusvara, H, a]
       },
-   TS { label = "vowel hiatus",
+   TS { label = "medial vowel hiatus, first implicit",
         unicode = "दउत",
         velthuis = "da{}uta",
         segments = [D, a, U NoMod, T, a]
+      },
+   TS { label = "medial vowel hiatus, first explicit",
+        unicode = "दिउत",
+        velthuis = "diuta", -- XXX do we need {} here?
+        segments = [D, I NoMod, U NoMod, T, a]
+      },
+   TS { label = "hiatus with anusvara on first vowel",
+        unicode = "देंउत",
+        velthuis = "de.muta",
+        segments = [D, E Anusvara, U NoMod, T, a]
+      },
+   TS { label = "hiatus with anusvara on second vowel",
+        unicode = "देउंत",
+        velthuis = "deu.mta",
+        segments = [D, E NoMod, U Anusvara, T, a]
+      },
+   TS { label = "initial hiatus",
+        unicode = "अउत",
+        velthuis = "a{}uta",
+        segments = [a, U NoMod, T, a]
+      },
+   TS { label = "final hiatus",
+        unicode = "तेउ",
+        velthuis = "teu",       -- XXX do we need {}
+        segments = [T, E NoMod, U NoMod]
+      },
+   TS { label = "initial triple hiatus",
+        unicode = "अउइत",
+        velthuis = "a{}uita",
+        segments = [a, U NoMod, I NoMod, T, a]
+      },
+   TS { label = "medial triple hiatus",
+        unicode = "दउइत",
+        velthuis = "da{}uita",
+        segments = [D, a, U NoMod, I NoMod, T, a]
+      },
+   TS { label = "final triple hiatus",
+        unicode = "तउइ",
+        velthuis = "ta{}ui",
+        segments = [T, a, U NoMod, I NoMod]
       },
    TS { label = "single initial vowel",
         unicode = "ए",
@@ -179,8 +223,8 @@ testSpecs =
                     T, AI NoMod,
                     T, O NoMod,
                     T, AU NoMod]
-      }
-  ] ++ initialVowelTests
+      }]
+  ++ initialVowelTests
 
 initialVowelTests =
   map makeInitialVowelTest
@@ -206,3 +250,13 @@ makeInitialVowelTest (v, u, s) =
        unicode = u ++ "क",
        velthuis = v ++ "ka",
        segments = [s NoMod, K, a] }
+
+unicodeErrorTests =
+  "invalid unicode input" ~:
+  ["modifier after virama" ~: assertBadUnicode (U.toSegments "पत्ः"),
+   "initial vowel after virama" ~: assertBadUnicode (U.toSegments "पत्ऋ"),
+   "consecutive medial vowels" ~: assertBadUnicode (U.toSegments "पाीत्"),
+   "medial vowel after medial short-a" ~: assertBadUnicode (U.toSegments "पित्"),
+   "medial vowel after modifier" ~: assertBadUnicode (U.toSegments "पःीत्"),
+   "virama on initial vowel" ~: assertBadUnicode (U.toSegments "ए्क"),
+   "virama on medial vowel" ~: assertBadUnicode (U.toSegments "पि्त")]
