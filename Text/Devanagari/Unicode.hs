@@ -79,9 +79,7 @@ fromSegments = undefined
 --     hiatus.)
 --  4) Vowel modifiers may not appear after viramas.  Modifiers on a consonant
 --     imply an [a].
---  5) Consonants may not appear after other consonants; use a virama for
---     clusters.
---  6) Viramas may appear only on consonants.
+--  5) Viramas may appear only on consonants.
 --
 -- Positively:
 --  word ::= (InitVowel VowelMod?)* Syllable* (Consonant Virama)*
