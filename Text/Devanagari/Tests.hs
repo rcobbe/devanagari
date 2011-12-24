@@ -180,4 +180,29 @@ testSpecs =
                     T, O NoMod,
                     T, AU NoMod]
       }
-  ]
+  ] ++ initialVowelTests
+
+initialVowelTests =
+  map makeInitialVowelTest
+  [("a", "अ", A),
+   ("aa", "आ", AA),
+   ("i", "इ", I),
+   ("ii", "ई", II),
+   ("u", "उ", U),
+   ("uu", "ऊ", UU),
+   (".r", "ऋ", VocR),
+   (".R", "ॠ", VocRR),
+   (".l", "ऌ", VocL),
+   (".L", "ॡ", VocLL),
+   ("e", "ए", E),
+   ("ai", "ऐ", AI),
+   ("o", "ओ", O),
+   ("au", "औ", AU)]
+
+-- Velthuis, Unicode, vowel segment constructor
+makeInitialVowelTest :: (String, String, VowelMod -> Segment) -> TestSpec
+makeInitialVowelTest (v, u, s) =
+  TS { label = "initial " ++ v,
+       unicode = u ++ "क",
+       velthuis = v ++ "ka",
+       segments = [s NoMod, K, a] }
