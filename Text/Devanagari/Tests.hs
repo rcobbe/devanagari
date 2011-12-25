@@ -247,7 +247,6 @@ unicodeErrorTests =
   ["modifier after virama" ~: assertBadUnicode (U.toSegments "पत्ः"),
    "initial vowel after virama" ~: assertBadUnicode (U.toSegments "पत्ऋ"),
    "consecutive medial vowels" ~: assertBadUnicode (U.toSegments "पाीत्"),
-   "medial vowel after medial short-a" ~: assertBadUnicode (U.toSegments "पित्"),
    "medial vowel after modifier" ~: assertBadUnicode (U.toSegments "पःीत्"),
    "virama on initial vowel" ~: assertBadUnicode (U.toSegments "ए्क"),
    "virama on medial vowel" ~: assertBadUnicode (U.toSegments "पि्त")]
