@@ -2,14 +2,19 @@
 
 module Text.Devanagari.Exception where
 
-import qualified Control.Exception as Exception
-import Data.Typeable
+import qualified Control.Monad.Error.Class as CMEC
 
-data Exception = BadUnicode { input :: String, msg :: String }
-                 deriving (Typeable)
+data Error = BadUnicode { input :: String, msg :: String }
+           | OtherError { msg :: String }
 
-instance Show Exception where
+instance CMEC.Error Error where
+  noMsg = OtherError "Devanagari error!"
+  strMsg s = OtherError s
+
+instance Show Error where
   show (BadUnicode { input = i, msg = m }) =
     "Invalid Unicode input \"" ++ i ++ "\": " ++ m
+  show (OtherError msg) =
+    "Other Devanagari error: " ++ msg
 
-instance Exception.Exception Exception
+type Exceptional a = Either Error a

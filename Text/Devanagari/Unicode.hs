@@ -33,7 +33,7 @@ tricky things to test:
   - initial vowel after consonant (should signal error)
 -}
 
-import Control.Exception (throw)
+import Control.Monad.Error
 
 import Text.Parsec.Char
 import Text.Parsec.Combinator
@@ -41,20 +41,20 @@ import Text.Parsec.Error
 import Text.Parsec.Prim
 import Text.Parsec.String
 
-import Text.Devanagari.Exception
+import qualified Text.Devanagari.Exception as TDE
 import Text.Devanagari.Segments
 
 -- | Converts a Unicode string to a list of segments.  On error throws one of
 -- the following:
 -- *
-toSegments :: String -> [Segment]
+toSegments :: String -> TDE.Exceptional [Segment]
 toSegments s =
   case parse unicode "" s of
     Left error ->
       case (errorMessages error) of
-        [] -> throw $ BadUnicode s "unknown error"
-        (msg : _) -> throw $ BadUnicode s (messageString msg)
-    Right segments -> segments
+        [] -> throwError $ TDE.BadUnicode s "unknown error"
+        (msg : _) -> throwError $ TDE.BadUnicode s (messageString msg)
+    Right segments -> Right segments
 
 fromSegments :: [Segment] -> String
 fromSegments = undefined

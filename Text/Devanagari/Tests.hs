@@ -2,7 +2,6 @@
 
 module Text.Devanagari.Tests(tests) where
 
-import Control.Exception (try)
 import Data.List (unzip4)
 import Test.HUnit
 
@@ -19,28 +18,20 @@ import qualified Text.Devanagari.Exception as E
 
 -- | Test case that asserts that the two arguments are equal and evaluating the
 -- left side does not throw a Devanagari exception.
-(!?=) :: (Eq a, Show a) => a -> a -> Assertion
-actual !?= expected =
-  do result <- try (return actual)
-     case result of
-       Left (exn :: E.Exception) ->
-         assertFailure ("caught exception: " ++ show exn)
-       Right val -> val @?= expected
+(!?=) :: (Eq a, Show a) => Exceptional a -> a -> Assertion
+(Left exn) !?= _ =
+  assertFailure ("caught exception: " ++ show exn)
+(Right val) !?= expected =
+  val @?= expected
 
 -- | Asserts that the evaluation of a form terminates in a BadUnicode
 -- exception.
-assertBadUnicode :: (Show a) => a -> Assertion
-assertBadUnicode form =
-  do result <- try (return form)
-     case result of
-       Left (BadUnicode _ _) -> return ()
-       {-
-       Left exn ->
-         assertFailure ("expected BadUnicode exception; caught " ++ show exn)
-       -}
-       Right val ->
-         assertFailure
-         ("expected BadUnicode exception; got result " ++ show val)
+assertBadUnicode :: (Show a) => Exceptional a -> Assertion
+assertBadUnicode (Left (BadUnicode _ _)) = return ()
+assertBadUnicode (Left exn) =
+  assertFailure ("expected BadUnicode exception; caught " ++ show exn)
+assertBadUnicode (Right val) =
+  assertFailure ("expected BadUnicode exception; got result " ++ show val)
 
 data TestSpec = TS { label :: String,
                      unicode :: String,
