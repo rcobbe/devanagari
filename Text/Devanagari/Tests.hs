@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Text.Devanagari.Tests(tests) where
 
 import Data.List (unzip4)
