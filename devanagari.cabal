@@ -17,7 +17,8 @@ Library
     Trie >= 0.2,
     monads-tf >= 0.1.0.0,
     parsec >= 3.1.1,
-    containers >= 0.4.0.0
+    containers >= 0.4.0.0,
+    utf8-string >= 0.3.6
   Exposed-Modules:
     Text.Devanagari.Exception,
     Text.Devanagari.Segments,
