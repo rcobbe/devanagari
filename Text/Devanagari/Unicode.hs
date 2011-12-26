@@ -1,5 +1,5 @@
 -- | This module defines the translations between devanagari representations
--- based on Unicode and on 'Text.Devanagari.Segments.Segment'.
+-- based on Unicode and on 'Segment'.
 
 module Text.Devanagari.Unicode(
   -- * Parsing Unicode
@@ -10,80 +10,7 @@ module Text.Devanagari.Unicode(
   fromSegments)
 where
 
--- $parsingUnicode
--- Converting Unicode devanagari text to a segment-based representation
--- requires getting lots of details right, due to the differences between the
--- two representations.  In the 'Segment'-based representation, consonants do
--- not possess an inherent vowel, and the virama is therefore not necessary.
--- Additionally, we do not distinguish between initial and medial vowels, and
--- we treat the anusvara and visarga as modifiers on the previous vowel.  At
--- the moment, we allow either anusvara or visarga to appear on a particular
--- vowel, but never both at the same time.
---
--- In the Unicode representation, however, initial and medial vowels have
--- separate representations.  Consonants possess an inherent short-a vowel,
--- which is cancelled whenever the consonant is followed by a virama (U+094D)
--- or a medial vowel.  So, we can divide the Devanagari code points used for
--- Sanskrit into the following classes:
---
--- * initial vowels
---
--- * medial vowels
---
--- * vowel modifiers: anusvara, visarga.  (These are phonetically consonants,
---   but they may only appear immediately after a vowel, so treating them as a
---   separate class simplifies the implementation.)
---
--- * consonants.  (A vowel modifier may appear immediately after a consonant,
---   in which case the modifier applies to the consonant's inherent short-a.)
---
--- * virama.
---
--- Unicode devanagari text obeys the following constraints:
---
---  1. Initial vowels may not appear after a virama.  (An initial vowel
---     appearing after a consonant or medial vowel, possibly with modifier,
---     indicates hiatus.)
---
---  2. Medial vowels must appear immediately after a consonant, with no
---     modifiers or virama allowed on the consonant.  (A modifier on the
---     consonant would indicate an implicit [a], leading to a misformed
---     hiatus.)
---
---  3. Vowel modifiers may not appear after viramas.  Modifiers on a consonant
---     apply to the consonant's inherent short a.
---
---  4. Viramas may appear only on consonants.
---
--- This leads to the following grammar:
---
--- @word ::= InitialVowelMod+ Syllable* (Consonant Virama)*@
---
--- @       | InitialVowelMod* Syllable+ (Consonant Virama)*@
---
--- @Syllable ::= (Consonant Virama)* Consonant MedialVowel? VowelMod? InitVowelMod*@
---
--- @InitialVowelMod ::= InitialVowel VowelMod?@
---
--- @VowelMod ::= Anusvara | Visarga@
---
--- The complexity in the definition of @word@ ensures that we have at least
--- one initial vowel or at least one syllable: this allows us to handle words
--- that consist entirely of an initial vowel, plus words that start with a
--- consonant.
---
--- This is a graphical, rather than phonetic, notion of a syllable; it's
--- essentially the equivalent of the Sanskrit notion of an akṣara, with a
--- slight modification to allow vowel hiatus.
---
--- We allow vowel hiatus even though Sanskrit does not use it, largely so that
--- every list of Segments has a corresponding Unicode represenation.
-
 import Control.Monad.Error
-
--- XXX can we get rid of the qualification in the haddock comment at top of
--- file?
-
 import Text.Parsec.Char
 import Text.Parsec.Combinator
 import Text.Parsec.Error
@@ -122,7 +49,7 @@ fromSegments = undefined
 --     first in the Unicode stream, according to Apple's rendering logic.
 --  2) Initial vowels may not appear after a virama.  Appearing after a medial
 --     vowel or consonant, possibly with vowel modifier, indicates hiatus, with
---     short a in the latte case.
+--     short A in the latter case.
 --  3) Medial vowels must appear after a consonant, with no modifiers allowed.
 --     (A modifier would indicate an implicit [a], leading to an illegal
 --     hiatus.)
@@ -195,7 +122,7 @@ syllable =
   <?> "syllable"
 
 -- | Parse a medial vowel without modifiers.  (We separate the two because
--- modifiers can appear without an explicit medial vowel, for implicit short a.)
+-- modifiers can appear without an explicit medial vowel, for implicit short A.)
 medialVowel :: GenParser Char st (VowelMod -> Segment)
 medialVowel =
   charTranslate [(combAA, AA),
@@ -350,3 +277,77 @@ ha          = '\x0939'
 virama      = '\x094d'
 danda       = '\x0964'
 doubleDanda = '\x0965'
+
+-- $parsingUnicode
+-- Converting Unicode devanagari text to a segment-based representation
+-- requires getting lots of details right, due to the differences between the
+-- two representations.  In the 'Segment'-based representation, consonants do
+-- not possess an inherent vowel, and the representation therefore does not
+-- need a virama.  Additionally, we do not distinguish between initial and
+-- medial vowels, and we treat the anusvara and visarga as modifiers on the
+-- previous vowel.  At the moment, we allow either anusvara or visarga to
+-- appear on a particular vowel, but never both at the same time.
+--
+-- In the Unicode representation, however, initial and medial vowels have
+-- separate representations.  Consonants possess an inherent short A,
+-- which is cancelled whenever the consonant is followed by a virama (U+094D)
+-- or a medial vowel.  So, we can divide the Devanagari code points used for
+-- Sanskrit into the following classes:
+--
+-- * initial vowels
+--
+-- * medial vowels
+--
+-- * vowel modifiers: anusvara, visarga  (These are phonetically consonants,
+--   but they may only appear immediately after a vowel, so treating them as a
+--   separate class simplifies the implementation.)
+--
+-- * consonants  (A vowel modifier may appear immediately after a consonant,
+--   in which case the modifier applies to the consonant's inherent short A.)
+--
+-- * virama
+--
+-- Unicode devanagari text obeys the following constraints:
+--
+--  1. Initial vowels may not appear after a virama.  (An initial vowel
+--     appearing after a consonant or medial vowel, possibly with modifier,
+--     indicates hiatus.)
+--
+--  2. Medial vowels must appear immediately after a consonant, with no
+--     modifiers or virama allowed on the consonant.  (A modifier on the
+--     consonant would indicate an implicit [a], leading to a misformed
+--     hiatus.)
+--
+--  3. Vowel modifiers may not appear after viramas.  Modifiers on a consonant
+--     apply to the consonant's inherent short A.
+--
+--  4. Viramas may appear only on consonants.
+--
+-- This leads to the following grammar:
+--
+-- @ Word ::= InitialVowelMod+ Syllable* (Consonant Virama)*
+--        | InitialVowelMod* Syllable+ (Consonant Virama)*
+-- Syllable ::= (Consonant Virama)* Consonant MedialVowel? VowelMod? InitVowelMod*
+-- InitialVowelMod ::= InitialVowel VowelMod?
+-- VowelMod ::= Anusvara | Visarga@
+--
+-- The complexity in the definition of @word@ ensures that we have at least
+-- one initial vowel or at least one syllable: this allows us to handle words
+-- that consist entirely of an initial vowel, plus words that start with a
+-- consonant.
+--
+-- This is a graphical, rather than phonetic, notion of a syllable; it's
+-- essentially the equivalent of the Sanskrit notion of an ak&#x1e63;ara, with a
+-- slight modification to allow vowel hiatus.  (See
+-- <http://en.wikipedia.org/wiki/Devanagari#Principle> for a definition of
+-- \"ak&#x1e63;ara.\")
+--
+-- We allow vowel hiatus even though Sanskrit does not use it, largely so that
+-- every list of 'Segment's has a corresponding Unicode represenation.  A
+-- modification of the grammar above that does not support hiatus follows:
+--
+-- @ Word ::= InitialVowelMod Syllable* (Consonant Virama)*
+--        | Syllable? (Consonant Virama)*
+-- Syllable ::= (Consonant Virama)* Consonant MedialVowel? VowelMod?@
+--
+-- with the remaining productions as in the original grammar.
