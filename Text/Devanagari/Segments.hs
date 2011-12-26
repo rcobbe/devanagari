@@ -1,6 +1,9 @@
 module Text.Devanagari.Segments(Segment(..), VowelMod(..), isVowel)
 where
 
+-- XXX discuss rationale for allowing only a single modifier on any given
+-- vowel.  Simplifies representation, and satisfies all known use cases.
+
 -- | Segmental representation of Sanskrit, in standard lexicographic ordering.
 -- We represent visarga and anusvaras as modifiers on vowels, since they may
 -- only appear immediately after vowels.  (Note that in the standard
