@@ -1,39 +1,88 @@
 -- | This module defines the translations between devanagari representations
 -- based on Unicode and on 'Text.Devanagari.Segments.Segment'.
 
-module Text.Devanagari.Unicode(toSegments, fromSegments) where
+module Text.Devanagari.Unicode(
+  -- * Parsing Unicode
+
+  -- $parsingUnicode
+  toSegments,
+  -- * Converting to Unicode
+  fromSegments)
+where
+
+-- $parsingUnicode
+-- Converting Unicode devanagari text to a segment-based representation
+-- requires getting lots of details right, due to the differences between the
+-- two representations.  In the 'Segment'-based representation, consonants do
+-- not possess an inherent vowel, and the virama is therefore not necessary.
+-- Additionally, we do not distinguish between initial and medial vowels, and
+-- we treat the anusvara and visarga as modifiers on the previous vowel.  At
+-- the moment, we allow either anusvara or visarga to appear on a particular
+-- vowel, but never both at the same time.
+--
+-- In the Unicode representation, however, initial and medial vowels have
+-- separate representations.  Consonants possess an inherent short-a vowel,
+-- which is cancelled whenever the consonant is followed by a virama (U+094D)
+-- or a medial vowel.  So, we can divide the Devanagari code points used for
+-- Sanskrit into the following classes:
+--
+-- * initial vowels
+--
+-- * medial vowels
+--
+-- * vowel modifiers: anusvara, visarga.  (These are phonetically consonants,
+--   but they may only appear immediately after a vowel, so treating them as a
+--   separate class simplifies the implementation.)
+--
+-- * consonants.  (A vowel modifier may appear immediately after a consonant,
+--   in which case the modifier applies to the consonant's inherent short-a.)
+--
+-- * virama.
+--
+-- Unicode devanagari text obeys the following constraints:
+--
+--  1. Initial vowels may not appear after a virama.  (An initial vowel
+--     appearing after a consonant or medial vowel, possibly with modifier,
+--     indicates hiatus.)
+--
+--  2. Medial vowels must appear immediately after a consonant, with no
+--     modifiers or virama allowed on the consonant.  (A modifier on the
+--     consonant would indicate an implicit [a], leading to a misformed
+--     hiatus.)
+--
+--  3. Vowel modifiers may not appear after viramas.  Modifiers on a consonant
+--     apply to the consonant's inherent short a.
+--
+--  4. Viramas may appear only on consonants.
+--
+-- This leads to the following grammar:
+--
+-- @word ::= InitialVowelMod+ Syllable* (Consonant Virama)*@
+--
+-- @       | InitialVowelMod* Syllable+ (Consonant Virama)*@
+--
+-- @Syllable ::= (Consonant Virama)* Consonant MedialVowel? VowelMod? InitVowelMod*@
+--
+-- @InitialVowelMod ::= InitialVowel VowelMod?@
+--
+-- @VowelMod ::= Anusvara | Visarga@
+--
+-- The complexity in the definition of @word@ ensures that we have at least
+-- one initial vowel or at least one syllable: this allows us to handle words
+-- that consist entirely of an initial vowel, plus words that start with a
+-- consonant.
+--
+-- This is a graphical, rather than phonetic, notion of a syllable; it's
+-- essentially the equivalent of the Sanskrit notion of an akṣara, with a
+-- slight modification to allow vowel hiatus.
+--
+-- We allow vowel hiatus even though Sanskrit does not use it, largely so that
+-- every list of Segments has a corresponding Unicode represenation.
+
+import Control.Monad.Error
 
 -- XXX can we get rid of the qualification in the haddock comment at top of
 -- file?
-
-{-
-devanagari:
-  - anusvara, visarga on [a]
-  - consonant cluster ending word
-  - word consisting of single (initial) vowel
-
-syllable rule seems to be
-  optional initial vowel
-  zero or more consonant-virama pairs
-  optional (consonant w/o virama followed by (implicit) vowel with
-    modifiers)
-
-this should handle words that end with a consonant
-
-tricky things to test:
-  - word consisting only of a single vowel
-  - vowel hiatus: double, triple; intial, medial, final
-  - vowel modifiers:
-    - according to TextEdit, anusvara, visarga must always follow vowel,
-      initial or otherwise
-    - initial, medial, final
-    - in hiatus (first, middle, last)
-    - on implicit short-a
-    - after virama (should signal error)
-  - initial vowel after consonant (should signal error)
--}
-
-import Control.Monad.Error
 
 import Text.Parsec.Char
 import Text.Parsec.Combinator
@@ -44,9 +93,8 @@ import Text.Parsec.String
 import qualified Text.Devanagari.Exception as TDE
 import Text.Devanagari.Segments
 
--- | Converts a Unicode string to a list of segments.  On error throws one of
--- the following:
--- *
+-- | Converts a Unicode string to a list of segments.  On error, throws
+-- 'TDE.BadUnicode'.
 toSegments :: String -> TDE.Exceptional [Segment]
 toSegments s =
   case parse unicode "" s of
@@ -56,10 +104,11 @@ toSegments s =
         (msg : _) -> throwError $ TDE.BadUnicode s (messageString msg)
     Right segments -> Right segments
 
+-- | Converts a list of segments to its Unicode representation.
 fromSegments :: [Segment] -> String
 fromSegments = undefined
 
--- Character classes:
+-- Character classes in Unicode's representation of Devanagari text:
 --    initial vowels
 --    medial vowels
 --    vowel modifiers (anusvara, visarga)
@@ -90,6 +139,8 @@ fromSegments = undefined
 --  word ::= (InitVowel VowelMod?)+ Syllable* (Consonant Virama)*
 --         | (InitVowel VowelMod?)* Syllable+ (Consonant Virama)*
 
+-- | Parse a single unicode word into segments.  If the word does not start
+-- with an initial vowel, it must contain at least one syllable.
 unicode :: GenParser Char st [Segment]
 unicode =
   try (do initVowels <- many1 initVowelWithMod
@@ -105,6 +156,7 @@ unicode =
       return $ concat (initVowels : syllables ++ [coda]))
   <?> "initial vowel or consonant"
 
+-- | Parse an initial vowel with optional modifier.
 initVowelWithMod :: GenParser Char st Segment
 initVowelWithMod =
   do vowelCtor <- charTranslate [(initA, A),
@@ -125,11 +177,13 @@ initVowelWithMod =
      return $ vowelCtor mod
   <?> "initial vowel"
 
+-- | Parse a syllable: leading consonants, plus one or more vowels.  Final
+-- consonants are handled by 'unicode' above.
 syllable :: GenParser Char st [Segment]
 syllable =
   do onset <- many (try consonantVirama)
-     cnsnt <- consonant
-     medVowel <- optionMaybe medialVowel
+     cnsnt <- consonant         -- may not have virama
+     medVowel <- optionMaybe medialVowel -- XXX use option A instead of optionMaybe
      mod <- option NoMod vowelModifier
      hiatus <- many initVowelWithMod
      return $ concat [onset,
@@ -140,6 +194,8 @@ syllable =
                       hiatus]
   <?> "syllable"
 
+-- | Parse a medial vowel without modifiers.  (We separate the two because
+-- modifiers can appear without an explicit medial vowel, for implicit short a.)
 medialVowel :: GenParser Char st (VowelMod -> Segment)
 medialVowel =
   charTranslate [(combAA, AA),
@@ -157,12 +213,16 @@ medialVowel =
                  (combAU, AU)]
   <?> "medial vowel"
 
+-- XXX callers to vowelModifier shouldn't use option
+
+-- | Parse a vowel modifier.
 vowelModifier :: GenParser Char st VowelMod
 vowelModifier =
   (charTranslate [(visarga, Visarga), (anusvara, Anusvara)]
    <|> return NoMod)
   <?> "vowel modifier"
 
+-- | Parse a consonant followed by a virama.
 consonantVirama :: GenParser Char st Segment
 consonantVirama =
   do c <- consonant
@@ -170,6 +230,7 @@ consonantVirama =
      return c
   <?> "consonant with virama"
 
+-- | Parse a consonant; doesn't require a following virama.
 consonant :: GenParser Char st Segment
 consonant =
   charTranslate [(ka, K),
@@ -207,6 +268,10 @@ consonant =
                  (ha, H)]
   <?> "consonant"
 
+-- | Constructs a parser that recognizes any of a specific set of characters
+-- and maps them to specified results.  Specifically, 'charTranslate spec'
+-- recognizes any of the characters in the domain of 'spec' and, on a
+-- successful parse, returns the value associated with the match character.
 charTranslate :: [(Char, a)] -> GenParser Char st a
 charTranslate [] = parserZero
 charTranslate ((c, val) : rest) =
