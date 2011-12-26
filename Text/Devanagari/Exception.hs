@@ -1,11 +1,20 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
+-- | Defines the exception hierarchy that this library can throw, as well as
+-- the specific representation of the 'Control.Monad.Error.Error' monad that we
+-- use within the library.
 module Text.Devanagari.Exception where
 
 import qualified Control.Monad.Error.Class as CMEC
 
-data Error = BadUnicode { input :: String, msg :: String }
-           | OtherError { msg :: String }
+-- | Exception hierarchy.
+data Error
+  -- | Used to signal incorrect Unicode input.
+  = BadUnicode { input :: String, -- ^ the input that triggered the error
+                 msg :: String    -- ^ detailed error message
+               }
+  -- | Generic error required by the 'CMEC.Error' class.
+  | OtherError { msg :: String }
 
 instance CMEC.Error Error where
   noMsg = OtherError "Devanagari error!"
