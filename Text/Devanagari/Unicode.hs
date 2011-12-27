@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | This module defines the translations between devanagari representations
 -- based on Unicode and on 'Segment'.
 
@@ -30,10 +32,6 @@ toSegments s =
         [] -> throwError $ TDE.BadUnicode s "unknown error"
         (msg : _) -> throwError $ TDE.BadUnicode s (messageString msg)
     Right segments -> Right segments
-
--- | Converts a list of segments to its Unicode representation.
-fromSegments :: [Segment] -> String
-fromSegments = undefined
 
 -- Character classes in Unicode's representation of Devanagari text:
 --    initial vowels
@@ -351,3 +349,38 @@ doubleDanda = '\x0965'
 -- Syllable ::= (Consonant Virama)* Consonant MedialVowel? VowelMod?@
 --
 -- with the remaining productions as in the original grammar.
+
+-- | Converts a list of segments to its Unicode representation.
+fromSegments :: [Segment] -> String
+fromSegments segs =
+  case (parse segments "" segs :: Either ParseError String) of
+    Left err -> error (show err)
+    Right unicode -> unicode
+
+-- SWord ::= InitVowelWithMod+ Syllable* Consonant*
+--         | InitVowelWithMod* Syllable+ Consonant*
+-- Syllable ::= Consonant+ MedialVowelWithMod InitialVowelWithMod*
+
+segments :: GenParser Segment st String
+segments =
+  try (do vs :: [String] <- many1 segmentInitVowelWithMod
+          syllables :: [String] <- many segmentSyllable
+          coda :: [String] <- many consonantSegment
+          eof
+          return $ concat (vs ++ syllables ++ coda))
+  <|>
+  do vs :: [String] <- many segmentInitVowelWithMod
+     syllables :: [String] <- many1 segmentSyllable
+     coda :: [String] <- many consonantSegment
+     eof
+     return $ concat (vs ++ syllables ++ coda)
+  <?> "segment word"
+
+segmentInitVowelWithMod :: GenParser Segment st String
+segmentInitVowelWithMod = undefined
+
+segmentSyllable :: GenParser Segment st String
+segmentSyllable = undefined
+
+consonantSegment :: GenParser Segment st String
+consonantSegment = undefined
