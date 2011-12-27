@@ -373,13 +373,13 @@ type SegmentToken = (Segment, Int)
 segments :: GenParser SegmentToken st String
 segments =
   try (do vs :: [String] <- many1 segmentInitVowelWithMod
-          syllables :: [String] <- many segmentSyllable
+          syllables :: [String] <- many (try segmentSyllable)
           coda :: [String] <- many consonantClusterSegment
           eof
           return $ concat (vs ++ syllables ++ coda))
   <|>
   do vs :: [String] <- many segmentInitVowelWithMod
-     syllables :: [String] <- many1 segmentSyllable
+     syllables :: [String] <- many1 (try segmentSyllable)
      coda :: [String] <- many consonantClusterSegment
      eof
      return $ concat (vs ++ syllables ++ coda)
