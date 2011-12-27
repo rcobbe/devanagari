@@ -520,22 +520,3 @@ makeVowelSegmentMap vowelCtors =
             (Map.insert (vowelCtor Visarga) (vowelStr ++ [visarga])
                (Map.insert (vowelCtor Anusvara) (vowelStr ++ [anusvara])
                   map))
-
-{-
-
--- | Parses a single segment and returns that segment on success.
-segment :: Segment -> GenParser SegmentToken st Segment
-segment seg = segmentPredicate (== seg)
-
-segmentTranslate :: [(Segment, a)] -> GenParser SegmentToken st a
-segmentTranslate [] = parserZero
-segmentTranslate ((s, val) : rest) =
-  token showToken posFromToken testToken
-  <|> segmentTranslate rest
-    where
-      showToken    (seg, pos) = show seg
-      posFromToken (seg, pos) = setSourceColumn (initialPos "segment list") pos
-      testToken    (seg, pos) = if seg == s then Just val else Nothing
-
--}
-
