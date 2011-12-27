@@ -12,20 +12,20 @@ where
 -- standard lexicographical ordering on [Segment], except in cases involving
 -- vowel hiatus: [T, E Visarga, A NoMod, P, I] > [T, E NoMod, A NoMod, P, I],
 -- even though the normal Sanskrit ordering would be otherwise.
-data Segment = A VowelMod
-             | AA VowelMod
-             | I VowelMod
-             | II VowelMod
-             | U VowelMod
-             | UU VowelMod
-             | VocR VowelMod    -- short vocalic R
-             | VocRR VowelMod   -- long vocalic R
-             | VocL VowelMod    -- short vocalic L
-             | VocLL VowelMod   -- long vocalic L
-             | E VowelMod
-             | AI VowelMod
-             | O VowelMod
-             | AU VowelMod
+data Segment = A { modifier :: VowelMod }
+             | AA { modifier :: VowelMod }
+             | I { modifier :: VowelMod }
+             | II { modifier :: VowelMod }
+             | U { modifier :: VowelMod }
+             | UU { modifier :: VowelMod }
+             | VocR { modifier :: VowelMod }  -- short vocalic R
+             | VocRR { modifier :: VowelMod } -- long vocalic R
+             | VocL { modifier :: VowelMod }  -- short vocalic L
+             | VocLL { modifier :: VowelMod } -- long vocalic L
+             | E { modifier :: VowelMod }
+             | AI { modifier :: VowelMod }
+             | O { modifier :: VowelMod }
+             | AU { modifier :: VowelMod }
              | K
              | Kh
              | G
