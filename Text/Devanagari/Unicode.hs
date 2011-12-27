@@ -13,9 +13,13 @@ module Text.Devanagari.Unicode(
 where
 
 import Control.Monad.Error
+import Data.Map (Map)
+import qualified Data.Map as Map
+
 import Text.Parsec.Char
 import Text.Parsec.Combinator
 import Text.Parsec.Error
+import Text.Parsec.Pos
 import Text.Parsec.Prim
 import Text.Parsec.String
 
@@ -353,34 +357,185 @@ doubleDanda = '\x0965'
 -- | Converts a list of segments to its Unicode representation.
 fromSegments :: [Segment] -> String
 fromSegments segs =
-  case (parse segments "" segs :: Either ParseError String) of
+  let parserResult :: Either ParseError String
+      parserResult = parse segments "" (zip segs (enumFrom 1))
+  in case parserResult of
     Left err -> error (show err)
     Right unicode -> unicode
+
+type SegmentToken = (Segment, Int)
 
 -- SWord ::= InitVowelWithMod+ Syllable* Consonant*
 --         | InitVowelWithMod* Syllable+ Consonant*
 -- Syllable ::= Consonant+ MedialVowelWithMod InitialVowelWithMod*
 
-segments :: GenParser Segment st String
+-- | Parses a word of segments; returns the Unicode equivalent.
+segments :: GenParser SegmentToken st String
 segments =
   try (do vs :: [String] <- many1 segmentInitVowelWithMod
           syllables :: [String] <- many segmentSyllable
-          coda :: [String] <- many consonantSegment
+          coda :: [String] <- many consonantClusterSegment
           eof
           return $ concat (vs ++ syllables ++ coda))
   <|>
   do vs :: [String] <- many segmentInitVowelWithMod
      syllables :: [String] <- many1 segmentSyllable
-     coda :: [String] <- many consonantSegment
+     coda :: [String] <- many consonantClusterSegment
      eof
      return $ concat (vs ++ syllables ++ coda)
   <?> "segment word"
 
-segmentInitVowelWithMod :: GenParser Segment st String
-segmentInitVowelWithMod = undefined
+-- | Parses a segment representing an initial vowel plus modifier; returns
+-- unicode equivalent.
+segmentInitVowelWithMod :: GenParser SegmentToken st String
+segmentInitVowelWithMod =
+  segmentTranslate
+  (makeVowelSegmentMap
+   [(A, [initA]),
+    (AA, [initAA]),
+    (I, [initI]),
+    (II, [initII]),
+    (U, [initU]),
+    (UU, [initUU]),
+    (VocR, [initVocR]),
+    (VocRR, [initVocRR]),
+    (VocL, [initVocL]),
+    (VocLL, [initVocLL]),
+    (E, [initE]),
+    (AI, [initAI]),
+    (O, [initO]),
+    (AU, [initAU])])
+  -- <|> "initial vowel segment"
 
-segmentSyllable :: GenParser Segment st String
-segmentSyllable = undefined
+segmentMedialVowelWithMod :: GenParser SegmentToken st String
+segmentMedialVowelWithMod =
+  segmentTranslate
+  (makeVowelSegmentMap
+   [(A, []),
+    (AA, [combAA]),
+    (I, [combI]),
+    (II, [combII]),
+    (U, [combU]),
+    (UU, [combUU]),
+    (VocR, [combVocR]),
+    (VocRR, [combVocRR]),
+    (VocL, [combVocL]),
+    (VocLL, [combVocLL]),
+    (E, [combE]),
+    (AI, [combAI]),
+    (O, [combO]),
+    (AU, [combAU])])
 
-consonantSegment :: GenParser Segment st String
-consonantSegment = undefined
+-- Syllable ::= Consonant+ MedialVowelWithMod InitialVowelWithMod*
+segmentSyllable :: GenParser SegmentToken st String
+segmentSyllable =
+  do leadingConsonants :: [String] <- many (try consonantClusterSegment)
+     finalOnsetConsonant :: Char <- consonantSegment
+     -- remember that short a is represented *explicitly* in Segments.
+     vowelStr :: String <- segmentMedialVowelWithMod
+     hiatus :: [String] <- many segmentInitVowelWithMod
+     return $ concat (leadingConsonants
+                      ++ [finalOnsetConsonant : vowelStr]
+                      ++ hiatus)
+
+vowelSegment :: GenParser SegmentToken st Segment
+vowelSegment =
+  token showToken posFromToken testToken
+    where
+      showToken    (seg, pos) = show seg
+      posFromToken (seg, pos) = setSourceColumn (initialPos "segment list") pos
+      testToken    (seg, pos) = if isVowel seg then Just seg else Nothing
+
+consonantClusterSegment :: GenParser SegmentToken st String
+consonantClusterSegment =
+  do c <- consonantSegment
+     notFollowedBy vowelSegment
+     return [c, virama]
+
+consonantSegment :: GenParser SegmentToken st Char
+consonantSegment =
+  segmentTranslate
+  (Map.fromList [(K, ka),
+                 (Kh, kha),
+                 (G, ga),
+                 (Gh, gha),
+                 (Ng, velarNa),
+                 (C, ca),
+                 (Ch, cha),
+                 (J, ja),
+                 (Jh, jha),
+                 (PalN, palatalNa),
+                 (RetT, retroTa),
+                 (RetTh, retroTha),
+                 (RetD, retroDa),
+                 (RetDh, retroDha),
+                 (RetN, retroNa),
+                 (T, ta),
+                 (Th, tha),
+                 (D, da),
+                 (Dh, dha),
+                 (N, na),
+                 (P, pa),
+                 (Ph, pha),
+                 (B, ba),
+                 (Bh, bha),
+                 (M, ma),
+                 (Y, ya),
+                 (R, ra),
+                 (L, la),
+                 (PalS, palatalSa),
+                 (RetS, retroSa),
+                 (S, sa),
+                 (H, ha)])
+
+segmentTranslate :: Map Segment a -> GenParser SegmentToken st a
+segmentTranslate m =
+  Map.foldrWithKey buildParser parserZero m
+    where -- buildParser :: Segment -> a -> GenParser SegmentToken st a
+          --             -> GenParser SegmentToken st a
+      buildParser seg val parser =
+        segment seg val <|> parser
+
+segment :: Segment -> a -> GenParser SegmentToken st a
+segment desiredSegment val =
+  token showToken posFromToken testToken
+  where
+    showToken    (seg, pos) = show seg
+    posFromToken (seg, pos) = setSourceColumn (initialPos "segment list") pos
+    testToken    (seg, pos) =
+      if seg == desiredSegment
+      then Just val
+      else Nothing
+
+-- | Builds a map from vowel segment to string, given a map from vowel
+-- constructor to vowel character.  (Have to represent the input as an alist,
+-- rather than a map, because functions aren't in either Ord or Eq.)
+makeVowelSegmentMap :: [(VowelMod -> Segment, String)] -> Map Segment String
+makeVowelSegmentMap vowelCtors =
+  foldr addVowelToMap Map.empty vowelCtors
+  where addVowelToMap :: (VowelMod -> Segment, String) -> Map Segment String
+                         -> Map Segment String
+        addVowelToMap (vowelCtor, vowelStr) map =
+          Map.insert (vowelCtor NoMod) vowelStr
+            (Map.insert (vowelCtor Visarga) (vowelStr ++ [visarga])
+               (Map.insert (vowelCtor Anusvara) (vowelStr ++ [anusvara])
+                  map))
+
+{-
+
+-- | Parses a single segment and returns that segment on success.
+segment :: Segment -> GenParser SegmentToken st Segment
+segment seg = segmentPredicate (== seg)
+
+segmentTranslate :: [(Segment, a)] -> GenParser SegmentToken st a
+segmentTranslate [] = parserZero
+segmentTranslate ((s, val) : rest) =
+  token showToken posFromToken testToken
+  <|> segmentTranslate rest
+    where
+      showToken    (seg, pos) = show seg
+      posFromToken (seg, pos) = setSourceColumn (initialPos "segment list") pos
+      testToken    (seg, pos) = if seg == s then Just val else Nothing
+
+-}
+
