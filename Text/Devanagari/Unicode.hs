@@ -483,6 +483,7 @@ consonantSegment =
                  (Y, ya),
                  (R, ra),
                  (L, la),
+                 (V, va),
                  (PalS, palatalSa),
                  (RetS, retroSa),
                  (S, sa),
