@@ -38,13 +38,16 @@ data TestSpec = TS { label :: String,
 
 tests =
   -- let (u2s, s2u, v2s, s2v) = unzip4 (map makeTest testSpecs)
-  let u2s = map makeTest testSpecs
+  let (u2s, s2u) = unzip (map makeTest testSpecs)
   in "Text.Devanagari tests" ~:
-     ["Unicode to Segments" ~: u2s] ++ [unicodeErrorTests]
+     ["Unicode to Segments" ~: u2s,
+      "Segments to Unicode" ~: s2u]
+     ++ [unicodeErrorTests]
 
-makeTest :: TestSpec -> Test
+makeTest :: TestSpec -> (Test, Test)
 makeTest (TS { label = l, unicode = u, segments = s }) =
-  (l ~: (U.toSegments u !?= s))
+  (l ~: (U.toSegments u !?= s),
+   l ~: (U.fromSegments s ~?= u))
 
 a :: Segment
 a = A NoMod
