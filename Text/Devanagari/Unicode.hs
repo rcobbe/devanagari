@@ -383,7 +383,7 @@ segments =
      coda :: [String] <- many consonantClusterSegment
      eof
      return $ concat (vs ++ syllables ++ coda)
-  <?> "segment word"
+  <?> "word of segments"
 
 -- | Parses a segment representing an initial vowel plus modifier; returns
 -- unicode equivalent.
@@ -405,7 +405,7 @@ segmentInitVowelWithMod =
     (AI, [initAI]),
     (O, [initO]),
     (AU, [initAU])])
-  -- <|> "initial vowel segment"
+  <?> "segment denoting initial vowel"
 
 segmentMedialVowelWithMod :: GenParser SegmentToken st String
 segmentMedialVowelWithMod =
@@ -425,22 +425,24 @@ segmentMedialVowelWithMod =
     (AI, [combAI]),
     (O, [combO]),
     (AU, [combAU])])
+  <?> "segment denoting medial vowel"
 
 -- Syllable ::= Consonant+ MedialVowelWithMod InitialVowelWithMod*
 segmentSyllable :: GenParser SegmentToken st String
 segmentSyllable =
-  do leadingConsonants :: [String] <- many (try consonantClusterSegment)
-     finalOnsetConsonant :: Char <- consonantSegment
-     -- remember that short a is represented *explicitly* in Segments.
-     vowelStr :: String <- segmentMedialVowelWithMod
-     hiatus :: [String] <- many segmentInitVowelWithMod
-     return $ concat (leadingConsonants
-                      ++ [finalOnsetConsonant : vowelStr]
-                      ++ hiatus)
+  (do leadingConsonants :: [String] <- many (try consonantClusterSegment)
+      finalOnsetConsonant :: Char <- consonantSegment
+      -- remember that short a is represented *explicitly* in Segments.
+      vowelStr :: String <- segmentMedialVowelWithMod
+      hiatus :: [String] <- many segmentInitVowelWithMod
+      return $ concat (leadingConsonants
+                       ++ [finalOnsetConsonant : vowelStr]
+                       ++ hiatus))
+  <?> "syllable of segments"
 
 vowelSegment :: GenParser SegmentToken st Segment
 vowelSegment =
-  token showToken posFromToken testToken
+  token showToken posFromToken testToken <?> "segment denoting vowel"
     where
       showToken    (seg, pos) = show seg
       posFromToken (seg, pos) = setSourceColumn (initialPos "segment list") pos
@@ -448,9 +450,10 @@ vowelSegment =
 
 consonantClusterSegment :: GenParser SegmentToken st String
 consonantClusterSegment =
-  do c <- consonantSegment
-     notFollowedBy vowelSegment
-     return [c, virama]
+  (do c <- consonantSegment
+      notFollowedBy vowelSegment
+      return [c, virama])
+  <?> "segment denoting a consonant in initial/medial position in a cluster"
 
 consonantSegment :: GenParser SegmentToken st Char
 consonantSegment =
@@ -488,6 +491,7 @@ consonantSegment =
                  (RetS, retroSa),
                  (S, sa),
                  (H, ha)])
+  <?> "segment denoting a cosonant"
 
 segmentTranslate :: Map Segment a -> GenParser SegmentToken st a
 segmentTranslate m =
