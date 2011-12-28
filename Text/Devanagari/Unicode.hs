@@ -9,6 +9,8 @@ module Text.Devanagari.Unicode(
   -- $parsingUnicode
   toSegments,
   -- * Converting to Unicode
+
+  -- $parsingSegments
   fromSegments)
 where
 
@@ -26,6 +28,86 @@ import Text.Parsec.String
 import qualified Text.Devanagari.Exception as TDE
 import Text.Devanagari.Segments
 
+-- $parsingUnicode
+-- Converting Unicode devanagari text to a segment-based representation
+-- requires getting lots of details right, due to the differences between the
+-- two representations.  In the 'Segment'-based representation, consonants do
+-- not possess an inherent vowel, and the representation therefore does not
+-- need a virama.  Additionally, we do not distinguish between initial and
+-- medial vowels, and we treat the anusvara and visarga as modifiers on the
+-- previous vowel.  At the moment, we allow either anusvara or visarga to
+-- appear on a particular vowel, but never both at the same time.
+--
+-- In the Unicode representation, however, initial and medial vowels have
+-- separate representations.  Consonants possess an inherent short A,
+-- which is cancelled whenever the consonant is followed by a virama (U+094D)
+-- or a medial vowel.  So, we can divide the Devanagari code points used for
+-- Sanskrit into the following classes:
+--
+-- * initial vowels
+--
+-- * medial vowels
+--
+-- * vowel modifiers: anusvara, visarga  (These are phonetically consonants,
+--   but they may only appear immediately after a vowel, so treating them as a
+--   separate class simplifies the implementation.)
+--
+-- * consonants  (A vowel modifier may appear immediately after a consonant,
+--   in which case the modifier applies to the consonant's inherent short A.)
+--
+-- * virama
+--
+-- Unicode devanagari text obeys the following constraints:
+--
+--  1. Initial vowels may not appear after a virama.  (An initial vowel
+--     appearing after a consonant or medial vowel, possibly with modifier,
+--     indicates hiatus.  In the former case, the hiatus is with the
+--     consonant's implicit short A.)
+--
+--  2. Medial vowels must appear immediately after a consonant, with no
+--     modifiers or virama allowed on the consonant.  (A modifier on the
+--     consonant would indicate an implicit short a, leading to a misformed
+--     hiatus.)
+--
+--  3. Vowel modifiers may not appear after viramas.  Modifiers on a consonant
+--     apply to the consonant's inherent short A.
+--
+--  4. Viramas may appear only on consonants.
+--
+--  5. For now, assume that a vowel may have at most one modifier.  I don't
+--     know whether we have attested text that contains an anusvara and a
+--     visarga on the same vowel, and it simplifies the segment representation
+--     to disallow the case.  If it /can/ happen, then the anusvara code point
+--     should appear before the visarga, according to Apple's rendering logic.
+--
+-- This leads to the following grammar:
+--
+-- @ Word ::= InitialVowelMod+ Syllable* (Consonant Virama)*
+--        | InitialVowelMod* Syllable+ (Consonant Virama)*
+-- Syllable ::= (Consonant Virama)* Consonant MedialVowel? VowelMod? InitVowelMod*
+-- InitialVowelMod ::= InitialVowel VowelMod?
+-- VowelMod ::= Anusvara | Visarga@
+--
+-- The two productions for @word@ ensure that we have at least one initial
+-- vowel or at least one syllable: this allows us to handle words that consist
+-- entirely of an initial vowel, plus words that start with a consonant.
+--
+-- This is a graphical, rather than phonetic, notion of a syllable; it's
+-- essentially the equivalent of the Sanskrit notion of an ak&#x1e63;ara, with a
+-- slight modification to allow vowel hiatus.  (See
+-- <http://en.wikipedia.org/wiki/Devanagari#Principle> for a definition of
+-- \"ak&#x1e63;ara.\")
+--
+-- We allow vowel hiatus even though Sanskrit does not use it, largely so that
+-- every list of 'Segment's has a corresponding Unicode representation.  A
+-- modification of the grammar above that does not support hiatus follows:
+--
+-- @ Word ::= InitialVowelMod Syllable* (Consonant Virama)*
+--        | Syllable? (Consonant Virama)*
+-- Syllable ::= (Consonant Virama)* Consonant MedialVowel? VowelMod?@
+--
+-- with the remaining productions as in the original grammar.
+
 -- | Converts a Unicode string to a list of segments.  On error, throws
 -- 'TDE.BadUnicode'.
 toSegments :: String -> TDE.Exceptional [Segment]
@@ -36,37 +118,6 @@ toSegments s =
         [] -> throwError $ TDE.BadUnicode s "unknown error"
         (msg : _) -> throwError $ TDE.BadUnicode s (messageString msg)
     Right segments -> Right segments
-
--- Character classes in Unicode's representation of Devanagari text:
---    initial vowels
---    medial vowels
---    vowel modifiers (anusvara, visarga)
---    consonants
---    virama
---
--- Constraints:
---  1) Assume that a vowel may have at most one modifier.  It's not clear
---     whether, in original text, an anusvara and a visarga may appear on the
---     same vowel.  If this can happen, then the anusvara should appear
---     first in the Unicode stream, according to Apple's rendering logic.
---  2) Initial vowels may not appear after a virama.  Appearing after a medial
---     vowel or consonant, possibly with vowel modifier, indicates hiatus, with
---     short A in the latter case.
---  3) Medial vowels must appear after a consonant, with no modifiers allowed.
---     (A modifier would indicate an implicit [a], leading to an illegal
---     hiatus.)
---  4) Vowel modifiers may not appear after viramas.  Modifiers on a consonant
---     imply an [a].
---  5) Viramas may appear only on consonants.
---
--- Positively:
---  word ::= (InitVowel VowelMod?)* Syllable* (Consonant Virama)*
---  Syllable ::=
---    (Consonant Virama)* Consonant MedialVowel? VowelMod?
---    (InitVowel VowelMod?)*
--- need to ensure that word isn't empty --
---  word ::= (InitVowel VowelMod?)+ Syllable* (Consonant Virama)*
---         | (InitVowel VowelMod?)* Syllable+ (Consonant Virama)*
 
 -- | Parse a single unicode word into segments.  If the word does not start
 -- with an initial vowel, it must contain at least one syllable.
@@ -85,7 +136,7 @@ unicode =
       return $ concat (initVowels : syllables ++ [coda]))
   <?> "initial vowel or consonant"
 
--- | Parse an initial vowel with optional modifier.
+-- | Parse an initial unicode vowel with optional modifier.
 initVowelWithMod :: GenParser Char st Segment
 initVowelWithMod =
   do vowelCtor <- charTranslate [(initA, A),
@@ -106,8 +157,8 @@ initVowelWithMod =
      return $ vowelCtor mod
   <?> "initial vowel"
 
--- | Parse a syllable: leading consonants, plus one or more vowels.  Final
--- consonants are handled by 'unicode' above.
+-- | Parse a unicode syllable: leading consonants, plus one or more vowels.
+-- Final consonants are handled by 'unicode' above.
 syllable :: GenParser Char st [Segment]
 syllable =
   do onset <- many (try consonantVirama)
@@ -123,8 +174,9 @@ syllable =
                       hiatus]
   <?> "syllable"
 
--- | Parse a medial vowel without modifiers.  (We separate the two because
--- modifiers can appear without an explicit medial vowel, for implicit short A.)
+-- | Parse a unicode medial vowel without modifiers.  (We separate the two
+-- because modifiers can appear without an explicit medial vowel, for implicit
+-- short A.)
 medialVowel :: GenParser Char st (VowelMod -> Segment)
 medialVowel =
   charTranslate [(combAA, AA),
@@ -144,14 +196,14 @@ medialVowel =
 
 -- XXX callers to vowelModifier shouldn't use option
 
--- | Parse a vowel modifier.
+-- | Parse a unicode vowel modifier.
 vowelModifier :: GenParser Char st VowelMod
 vowelModifier =
   (charTranslate [(visarga, Visarga), (anusvara, Anusvara)]
    <|> return NoMod)
   <?> "vowel modifier"
 
--- | Parse a consonant followed by a virama.
+-- | Parse a unicode consonant followed by a virama.
 consonantVirama :: GenParser Char st Segment
 consonantVirama =
   do c <- consonant
@@ -159,7 +211,7 @@ consonantVirama =
      return c
   <?> "consonant with virama"
 
--- | Parse a consonant; doesn't require a following virama.
+-- | Parse a unicode consonant; doesn't require a following virama.
 consonant :: GenParser Char st Segment
 consonant =
   charTranslate [(ka, K),
@@ -206,6 +258,9 @@ charTranslate [] = parserZero
 charTranslate ((c, val) : rest) =
   (char c >> return val)
   <|> charTranslate rest
+-- XXX rewrite to use map.  Also, perhaps rewrite to pull a character, check if
+-- it's in the map, and call parserZero otherwise.  Use try to ensure that we
+-- only consume input on success.
 
 initA, initAA, combAA, initI, combI, initII, combII, initU, combU, initUU,
   combUU, initVocR, combVocR, initVocRR, combVocRR, initVocL, combVocL,
@@ -280,79 +335,45 @@ virama      = '\x094d'
 danda       = '\x0964'
 doubleDanda = '\x0965'
 
--- $parsingUnicode
--- Converting Unicode devanagari text to a segment-based representation
--- requires getting lots of details right, due to the differences between the
--- two representations.  In the 'Segment'-based representation, consonants do
--- not possess an inherent vowel, and the representation therefore does not
--- need a virama.  Additionally, we do not distinguish between initial and
--- medial vowels, and we treat the anusvara and visarga as modifiers on the
--- previous vowel.  At the moment, we allow either anusvara or visarga to
--- appear on a particular vowel, but never both at the same time.
+-- $parsingSegments
 --
--- In the Unicode representation, however, initial and medial vowels have
--- separate representations.  Consonants possess an inherent short A,
--- which is cancelled whenever the consonant is followed by a virama (U+094D)
--- or a medial vowel.  So, we can divide the Devanagari code points used for
--- Sanskrit into the following classes:
+-- Converting segments to Unicode is more straightforward than the inverse.  In
+-- general, the translation is straightforward: vowel segments map to Unicode
+-- medial vowels plus any modifiers, and consonant segments map to Unicode
+-- consonants plus viramas.  The only points that require some care are the
+-- following:
 --
--- * initial vowels
+-- * Vowel segments must map to Unicode initial vowels in certain contexts
+--   (word initial, part of hiatus),
 --
--- * medial vowels
+-- * Consonants before vowels must drop their viramas, and
 --
--- * vowel modifiers: anusvara, visarga  (These are phonetically consonants,
---   but they may only appear immediately after a vowel, so treating them as a
---   separate class simplifies the implementation.)
+-- * The segment 'A' does not appear medially in the Unicode version, and any
+--   modifiers must be applied to the preceding consonant.
 --
--- * consonants  (A vowel modifier may appear immediately after a consonant,
---   in which case the modifier applies to the consonant's inherent short A.)
+-- We use the following grammar:
 --
--- * virama
---
--- Unicode devanagari text obeys the following constraints:
---
---  1. Initial vowels may not appear after a virama.  (An initial vowel
---     appearing after a consonant or medial vowel, possibly with modifier,
---     indicates hiatus.)
---
---  2. Medial vowels must appear immediately after a consonant, with no
---     modifiers or virama allowed on the consonant.  (A modifier on the
---     consonant would indicate an implicit [a], leading to a misformed
---     hiatus.)
---
---  3. Vowel modifiers may not appear after viramas.  Modifiers on a consonant
---     apply to the consonant's inherent short A.
---
---  4. Viramas may appear only on consonants.
---
--- This leads to the following grammar:
---
--- @ Word ::= InitialVowelMod+ Syllable* (Consonant Virama)*
---        | InitialVowelMod* Syllable+ (Consonant Virama)*
--- Syllable ::= (Consonant Virama)* Consonant MedialVowel? VowelMod? InitVowelMod*
--- InitialVowelMod ::= InitialVowel VowelMod?
+-- @ Word ::= InitVowelWithMod+ Syllable* ConsonantClusterSegment*
+--        | InitVowelWithMod* Syllable+ ConsonantClusterSegment*
+-- Syllable ::= ConsonantClusterSegment* Consonant MedialVowelWithMod
+--              InitVowelWithMod*
+-- InitVowelWithMod ::= VowelSegment VowelMod?
+-- MedialVowelWithMod ::= VowelSegment VowelMod?
+-- Consonant ::= ConsonantSegment
+-- ConsonantClusterSgment ::= Consonant not followed by a VowelSegment
 -- VowelMod ::= Anusvara | Visarga@
 --
--- The complexity in the definition of @word@ ensures that we have at least
--- one initial vowel or at least one syllable: this allows us to handle words
--- that consist entirely of an initial vowel, plus words that start with a
--- consonant.
---
--- This is a graphical, rather than phonetic, notion of a syllable; it's
--- essentially the equivalent of the Sanskrit notion of an ak&#x1e63;ara, with a
--- slight modification to allow vowel hiatus.  (See
--- <http://en.wikipedia.org/wiki/Devanagari#Principle> for a definition of
--- \"ak&#x1e63;ara.\")
---
--- We allow vowel hiatus even though Sanskrit does not use it, largely so that
--- every list of 'Segment's has a corresponding Unicode represenation.  A
--- modification of the grammar above that does not support hiatus follows:
---
--- @ Word ::= InitialVowelMod Syllable* (Consonant Virama)*
---        | Syllable? (Consonant Virama)*
--- Syllable ::= (Consonant Virama)* Consonant MedialVowel? VowelMod?@
---
--- with the remaining productions as in the original grammar.
+-- Although @InitVowelWithMod@ and @MedialVowelWithMod@ describe identical
+-- languages, the results are different; @InitVowelWithMod@ occurs in a context
+-- where we need a Unicode code point for an initial vowel, and
+-- @MedialVowelWithMod@ occurs where we need a Unicode combining vowel.
+-- Similarly, the distinction between @Consonant@ and @ConsonantClusterSegment@
+-- allows us to put the viramas in the right place.
+
+-- | Segment parser's input type.  The Int supplies position information; we
+-- use it as the column number in the generated 'SourcePos', so it should start
+-- at 1 and increase by 1 with each successive input.
+type SegmentToken = (Segment, Int)
 
 -- | Converts a list of segments to its Unicode representation.
 fromSegments :: [Segment] -> String
@@ -360,14 +381,9 @@ fromSegments segs =
   let parserResult :: Either ParseError String
       parserResult = parse segments "" (zip segs (enumFrom 1))
   in case parserResult of
-    Left err -> error (show err)
+    Left err -> error ("internal error: Text.Devanagari.Unicode.fromSegments: "
+                       ++ show err)
     Right unicode -> unicode
-
-type SegmentToken = (Segment, Int)
-
--- SWord ::= InitVowelWithMod+ Syllable* Consonant*
---         | InitVowelWithMod* Syllable+ Consonant*
--- Syllable ::= Consonant+ MedialVowelWithMod InitialVowelWithMod*
 
 -- | Parses a word of segments; returns the Unicode equivalent.
 segments :: GenParser SegmentToken st String
@@ -385,8 +401,8 @@ segments =
      return $ concat (vs ++ syllables ++ coda)
   <?> "word of segments"
 
--- | Parses a segment representing an initial vowel plus modifier; returns
--- unicode equivalent.
+-- | Parses a segment representing an initial vowel plus optional modifier;
+-- returns unicode equivalent.
 segmentInitVowelWithMod :: GenParser SegmentToken st String
 segmentInitVowelWithMod =
   segmentTranslate
@@ -407,6 +423,8 @@ segmentInitVowelWithMod =
     (AU, [initAU])])
   <?> "segment denoting initial vowel"
 
+-- | Parses a segment representing a medial vowel plus initial modifier;
+-- returns unicode equivalent.
 segmentMedialVowelWithMod :: GenParser SegmentToken st String
 segmentMedialVowelWithMod =
   segmentTranslate
@@ -427,7 +445,7 @@ segmentMedialVowelWithMod =
     (AU, [combAU])])
   <?> "segment denoting medial vowel"
 
--- Syllable ::= Consonant+ MedialVowelWithMod InitialVowelWithMod*
+-- | Parses segments representing a syllable.  Returns Unicode equivalent.
 segmentSyllable :: GenParser SegmentToken st String
 segmentSyllable =
   (do leadingConsonants :: [String] <- many (try consonantClusterSegment)
@@ -440,6 +458,7 @@ segmentSyllable =
                        ++ hiatus))
   <?> "syllable of segments"
 
+-- | Parses a single vowel segment; returns the matched segment.
 vowelSegment :: GenParser SegmentToken st Segment
 vowelSegment =
   token showToken posFromToken testToken <?> "segment denoting vowel"
@@ -448,6 +467,9 @@ vowelSegment =
       posFromToken (seg, pos) = setSourceColumn (initialPos "segment list") pos
       testToken    (seg, pos) = if isVowel seg then Just seg else Nothing
 
+-- | Parses a consonant segment that appears in initial or medial position
+-- within a cluster -- i.e., is not followed by a vowel and thus needs a
+-- virama.  Returns unicode equivalent, including virama.
 consonantClusterSegment :: GenParser SegmentToken st String
 consonantClusterSegment =
   (do c <- consonantSegment
@@ -455,6 +477,8 @@ consonantClusterSegment =
       return [c, virama])
   <?> "segment denoting a consonant in initial/medial position in a cluster"
 
+-- | Parses a consonant segment that appears immediately before a vowel and
+-- thus does not need a virama.  Returns unicode equivalent.
 consonantSegment :: GenParser SegmentToken st Char
 consonantSegment =
   segmentTranslate
@@ -493,6 +517,9 @@ consonantSegment =
                  (H, ha)])
   <?> "segment denoting a cosonant"
 
+-- | Constructs a parser that recognizes any of the segments in the domain of
+-- the supplied map.  On success, returns the value associated with the matched
+-- segment in the map.
 segmentTranslate :: Map Segment a -> GenParser SegmentToken st a
 segmentTranslate m =
   Map.foldrWithKey buildParser parserZero m
@@ -501,6 +528,8 @@ segmentTranslate m =
       buildParser seg val parser =
         segment seg val <|> parser
 
+-- | A parser that recognizes only a specified 'Segment' and returns the given
+-- value on success.
 segment :: Segment -> a -> GenParser SegmentToken st a
 segment desiredSegment val =
   token showToken posFromToken testToken
@@ -514,7 +543,7 @@ segment desiredSegment val =
 
 -- | Builds a map from vowel segment to string, given a map from vowel
 -- constructor to vowel character.  (Have to represent the input as an alist,
--- rather than a map, because functions aren't in either Ord or Eq.)
+-- rather than a map, because functions aren't in either 'Ord' or 'Eq'.)
 makeVowelSegmentMap :: [(VowelMod -> Segment, String)] -> Map Segment String
 makeVowelSegmentMap vowelCtors =
   foldr addVowelToMap Map.empty vowelCtors
