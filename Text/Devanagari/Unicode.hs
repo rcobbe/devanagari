@@ -15,7 +15,7 @@ module Text.Devanagari.Unicode(
 where
 
 import Control.Monad.Error
-import Data.Map (Map)
+import Data.Map (Map, (!))
 import qualified Data.Map as Map
 
 import Text.Parsec.Char
@@ -139,20 +139,7 @@ unicode =
 -- | Parse an initial unicode vowel with optional modifier.
 initVowelWithMod :: GenParser Char st Segment
 initVowelWithMod =
-  do vowelCtor <- charTranslate [(initA, A),
-                                 (initAA, AA),
-                                 (initI, I),
-                                 (initII, II),
-                                 (initU, U),
-                                 (initUU, UU),
-                                 (initVocR, VocR),
-                                 (initVocRR, VocRR),
-                                 (initVocL, VocL),
-                                 (initVocLL, VocLL),
-                                 (initE, E),
-                                 (initAI, AI),
-                                 (initO, O),
-                                 (initAU, AU)]
+  do vowelCtor <- charTranslate initVowelMap
      mod <- vowelModifier
      return $ vowelCtor mod
   <?> "initial vowel"
@@ -162,15 +149,13 @@ initVowelWithMod =
 syllable :: GenParser Char st [Segment]
 syllable =
   do onset <- many (try consonantVirama)
-     cnsnt <- consonant         -- may not have virama
-     medVowel <- optionMaybe medialVowel -- XXX use option A instead of optionMaybe
-     mod <- option NoMod vowelModifier
+     cnsnt <- consonant         -- must not have virama
+     vowelCtor <- option A medialVowel
+     mod <- vowelModifier
      hiatus <- many initVowelWithMod
      return $ concat [onset,
                       [cnsnt],
-                      case medVowel of
-                        Just vc -> [vc mod]
-                        Nothing -> [A mod],
+                      [vowelCtor mod],
                       hiatus]
   <?> "syllable"
 
@@ -179,27 +164,13 @@ syllable =
 -- short A.)
 medialVowel :: GenParser Char st (VowelMod -> Segment)
 medialVowel =
-  charTranslate [(combAA, AA),
-                 (combI, I),
-                 (combII, II),
-                 (combU, U),
-                 (combUU, UU),
-                 (combVocR, VocR),
-                 (combVocRR, VocRR),
-                 (combVocL, VocL),
-                 (combVocLL, VocLL),
-                 (combE, E),
-                 (combAI, AI),
-                 (combO, O),
-                 (combAU, AU)]
+  charTranslate medialVowelMap
   <?> "medial vowel"
-
--- XXX callers to vowelModifier shouldn't use option
 
 -- | Parse a unicode vowel modifier.
 vowelModifier :: GenParser Char st VowelMod
 vowelModifier =
-  (charTranslate [(visarga, Visarga), (anusvara, Anusvara)]
+  (charTranslate vowelModMap
    <|> return NoMod)
   <?> "vowel modifier"
 
@@ -214,53 +185,89 @@ consonantVirama =
 -- | Parse a unicode consonant; doesn't require a following virama.
 consonant :: GenParser Char st Segment
 consonant =
-  charTranslate [(ka, K),
-                 (kha, Kh),
-                 (ga, G),
-                 (gha, Gh),
-                 (velarNa, Ng),
-                 (ca, C),
-                 (cha, Ch),
-                 (ja, J),
-                 (jha, Jh),
-                 (palatalNa, PalN),
-                 (retroTa, RetT),
-                 (retroTha, RetTh),
-                 (retroDa, RetD),
-                 (retroDha, RetDh),
-                 (retroNa, RetN),
-                 (ta, T),
-                 (tha, Th),
-                 (da, D),
-                 (dha, Dh),
-                 (na, N),
-                 (pa, P),
-                 (pha, Ph),
-                 (ba, B),
-                 (bha, Bh),
-                 (ma, M),
-                 (ya, Y),
-                 (ra, R),
-                 (la, L),
-                 (va, V),
-                 (palatalSa, PalS),
-                 (retroSa, RetS),
-                 (sa, S),
-                 (ha, H)]
+  charTranslate consonantMap
   <?> "consonant"
 
 -- | Constructs a parser that recognizes any of a specific set of characters
--- and maps them to specified results.  Specifically, 'charTranslate spec'
--- recognizes any of the characters in the domain of 'spec' and, on a
+-- and maps them to specified results.  Specifically, @charTranslate spec@
+-- recognizes any of the characters in the domain of @spec@ and, on a
 -- successful parse, returns the value associated with the match character.
-charTranslate :: [(Char, a)] -> GenParser Char st a
-charTranslate [] = parserZero
-charTranslate ((c, val) : rest) =
-  (char c >> return val)
-  <|> charTranslate rest
--- XXX rewrite to use map.  Also, perhaps rewrite to pull a character, check if
--- it's in the map, and call parserZero otherwise.  Use try to ensure that we
--- only consume input on success.
+charTranslate :: Map Char a -> GenParser Char st a
+charTranslate map =
+  do c <- oneOf (Map.keys map)
+     return $ map ! c
+
+initVowelMap :: Map Char (VowelMod -> Segment)
+initVowelMap =
+  Map.fromList [(initA, A),
+                (initAA, AA),
+                (initI, I),
+                (initII, II),
+                (initU, U),
+                (initUU, UU),
+                (initVocR, VocR),
+                (initVocRR, VocRR),
+                (initVocL, VocL),
+                (initVocLL, VocLL),
+                (initE, E),
+                (initAI, AI),
+                (initO, O),
+                (initAU, AU)]
+
+medialVowelMap :: Map Char (VowelMod -> Segment)
+medialVowelMap =
+  Map.fromList [(combAA, AA),
+                (combI, I),
+                (combII, II),
+                (combU, U),
+                (combUU, UU),
+                (combVocR, VocR),
+                (combVocRR, VocRR),
+                (combVocL, VocL),
+                (combVocLL, VocLL),
+                (combE, E),
+                (combAI, AI),
+                (combO, O),
+                (combAU, AU)]
+
+vowelModMap :: Map Char VowelMod
+vowelModMap = Map.fromList [(visarga, Visarga), (anusvara, Anusvara)]
+
+consonantMap :: Map Char Segment
+consonantMap =
+  Map.fromList [(ka, K),
+                (kha, Kh),
+                (ga, G),
+                (gha, Gh),
+                (velarNa, Ng),
+                (ca, C),
+                (cha, Ch),
+                (ja, J),
+                (jha, Jh),
+                (palatalNa, PalN),
+                (retroTa, RetT),
+                (retroTha, RetTh),
+                (retroDa, RetD),
+                (retroDha, RetDh),
+                (retroNa, RetN),
+                (ta, T),
+                (tha, Th),
+                (da, D),
+                (dha, Dh),
+                (na, N),
+                (pa, P),
+                (pha, Ph),
+                (ba, B),
+                (bha, Bh),
+                (ma, M),
+                (ya, Y),
+                (ra, R),
+                (la, L),
+                (va, V),
+                (palatalSa, PalS),
+                (retroSa, RetS),
+                (sa, S),
+                (ha, H)]
 
 initA, initAA, combAA, initI, combI, initII, combII, initU, combU, initUU,
   combUU, initVocR, combVocR, initVocRR, combVocRR, initVocL, combVocL,
