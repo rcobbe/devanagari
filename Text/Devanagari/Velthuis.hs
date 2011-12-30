@@ -1,6 +1,22 @@
 module Text.Devanagari.Velthuis(toSegments, fromSegments)
 where
 
+import Text.Devanagari.Exception
+import Text.Devanagari.Segment
+
+toSegments :: String -> Exceptional [Segment]
+toSegments = undefined
+
+velthuisSegment :: GenParser Char st Segment
+velthuisSegment =
+  do xyz
+
+fromSegments :: [Segment] -> String
+fromSegments = undefined
+
+
+{-
+
 -- originally thought I'd need to avoid "n "s for use with Racket/Scribble --
 -- but Scribble means that quotes are OK.
 
@@ -135,3 +151,5 @@ addVowel (str, vowelCtor) base =
 mcons :: a -> Maybe [a] -> Maybe [a]
 mcons _ Nothing = Nothing
 mcons x (Just xs) = Just (x:xs)
+
+-}
