@@ -117,7 +117,7 @@ toSegments s =
       case (errorMessages error) of
         [] -> throwError $ TDE.BadUnicode s "unknown error"
         (msg : _) -> throwError $ TDE.BadUnicode s (messageString msg)
-    Right segments -> Right segments
+    Right segments -> return segments
 
 -- | Parse a single unicode word into segments.  If the word does not start
 -- with an initial vowel, it must contain at least one syllable.
