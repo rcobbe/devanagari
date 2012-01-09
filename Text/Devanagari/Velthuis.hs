@@ -1,19 +1,94 @@
 module Text.Devanagari.Velthuis(toSegments, fromSegments)
 where
 
+import Text.Parsec.Char
+import Text.Parsec.Combinator
+import Text.Parsec.Prim
+import Text.Parsec.String
+
 import Text.Devanagari.Exception
-import Text.Devanagari.Segment
+import Text.Devanagari.Segments
 
 toSegments :: String -> Exceptional [Segment]
 toSegments = undefined
 
 velthuisSegment :: GenParser Char st Segment
 velthuisSegment =
-  do xyz
+  do optionMaybe (string "{}")
+     (parseVowel <|> parseConsonant)
+  <?> "Velthuis segment"
+
+parseVowel :: GenParser Char st Segment
+parseVowel =
+  do vowelCtor <- parseStrings [("aa", AA),
+                                ("a", A),
+                                ("ii", II),
+                                ("i", I),
+                                ("uu", UU),
+                                ("u", U),
+                                (".r", VocR),
+                                (".R", VocRR),
+                                (".l", VocL),
+                                (".L", VocLL),
+                                ("e", E),
+                                ("ai", AI),
+                                ("o", O),
+                                ("au", AU)]
+     mod <- vowelModifier
+     return $ vowelCtor mod
+
+vowelModifier :: GenParser Char st VowelMod
+vowelModifier =
+  try (string ".h" >> return Visarga)
+  <|> try (string ".m" >> return Anusvara)
+  <|> return NoMod
+  <?> "Velthuis vowel modifier"
+
+parseConsonant :: GenParser Char st Segment
+parseConsonant =
+  parseStrings [("kh", Kh),
+                ("k", K),
+                ("gh", Gh),
+                ("g", G),
+                ("\"n", Ng),
+                ("ch", Ch),
+                ("c", C),
+                ("jh", Jh),
+                ("j", J),
+                ("~n", PalN),
+                (".th", RetTh),
+                (".t", RetT),
+                (".dh", RetDh),
+                (".d", RetD),
+                (".n", RetN),
+                ("th", Th),
+                ("t", T),
+                ("dh", Dh),
+                ("d", D),
+                ("n", N),
+                ("ph", Ph),
+                ("p", P),
+                ("bh", Bh),
+                ("b", B),
+                ("m", M),
+                ("y", Y),
+                ("r", R),
+                ("l", L),
+                ("v", V),
+                ("\"s", PalS),
+                (".s", S),
+                ("h", H)]
+  <?> "Velthuis consonant"
+
+parseStrings :: [(String, a)] -> GenParser Char st a
+parseStrings [] = parserZero
+parseStrings ((str, val) : rest) =
+  (do string str
+      return val)
+  <|> parseStrings rest
 
 fromSegments :: [Segment] -> String
 fromSegments = undefined
-
 
 {-
 
