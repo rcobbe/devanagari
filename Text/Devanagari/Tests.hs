@@ -1,6 +1,6 @@
 module Text.Devanagari.Tests(tests) where
 
-import Data.List (unzip4)
+import Data.List (unzip3)
 import Test.HUnit
 
 import Text.Devanagari.Exception
@@ -22,14 +22,21 @@ import qualified Text.Devanagari.Exception as E
 (Right val) !?= expected =
   val @?= expected
 
--- | Asserts that the evaluation of a form terminates in a BadUnicode
--- exception.
+-- | Asserts that the evaluation of a form throws a 'BadUnicode' exception.
 assertBadUnicode :: (Show a) => Exceptional a -> Assertion
 assertBadUnicode (Left (BadUnicode _ _)) = return ()
 assertBadUnicode (Left exn) =
   assertFailure ("expected BadUnicode exception; caught " ++ show exn)
 assertBadUnicode (Right val) =
   assertFailure ("expected BadUnicode exception; got result " ++ show val)
+
+-- | Asserts that the evaluation of a form throws a 'BadVelthuis' exception.
+assertBadVelthuis :: (Show a) => Exceptional a -> Assertion
+assertBadVelthuis (Left (BadVelthuis _ _)) = return ()
+assertBadVelthuis (Left exn) =
+  assertFailure ("expected BadVelthuis exception; caught " ++ show exn)
+assertBadVelthuis (Right val) =
+  assertFailure ("expected BadVelthuis exception; got result " ++ show val)
 
 data TestSpec = TS { label :: String,
                      unicode :: String,
@@ -38,16 +45,18 @@ data TestSpec = TS { label :: String,
 
 tests =
   -- let (u2s, s2u, v2s, s2v) = unzip4 (map makeTest testSpecs)
-  let (u2s, s2u) = unzip (map makeTest testSpecs)
+  let (u2s, s2u, v2s) = unzip3 (map makeTest testSpecs)
   in "Text.Devanagari tests" ~:
      ["Unicode to Segments" ~: u2s,
-      "Segments to Unicode" ~: s2u]
+      "Segments to Unicode" ~: s2u,
+      "Velthuis to Segments" ~: v2s]
      ++ [unicodeErrorTests]
 
-makeTest :: TestSpec -> (Test, Test)
-makeTest (TS { label = l, unicode = u, segments = s }) =
+makeTest :: TestSpec -> (Test, Test, Test)
+makeTest (TS { label = l, unicode = u, segments = s, velthuis = v }) =
   (l ~: (U.toSegments u !?= s),
-   l ~: (U.fromSegments s ~?= u))
+   l ~: (U.fromSegments s ~?= u),
+   l ~: (V.toSegments v !?= s))
 
 a :: Segment
 a = A NoMod
@@ -251,3 +260,7 @@ unicodeErrorTests =
    "medial vowel after modifier" ~: assertBadUnicode (U.toSegments "पःीत्"),
    "virama on initial vowel" ~: assertBadUnicode (U.toSegments "ए्क"),
    "virama on medial vowel" ~: assertBadUnicode (U.toSegments "पि्त")]
+
+velthuisErrorTests =
+  "invalid velthuis input" ~:
+  ["modifier after consonant" ~: assertBadVelthuis (V.toSegments "pat.h")]
