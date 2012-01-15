@@ -13,6 +13,10 @@ data Error
   = BadUnicode { input :: String, -- ^ the input that triggered the error
                  msg :: String    -- ^ detailed error message
                }
+  -- | Used to signal incorrect Velthuis input.
+  | BadVelthuis { input :: String, -- ^ the input that triggered the error
+                  msg :: String    -- ^ detailed error message
+                }
   -- | Generic error required by the 'CMEC.Error' class.
   | OtherError { msg :: String }
 
@@ -23,6 +27,8 @@ instance CMEC.Error Error where
 instance Show Error where
   show (BadUnicode { input = i, msg = m }) =
     "Invalid Unicode input \"" ++ i ++ "\": " ++ m
+  show (BadVelthuis { input = i, msg = m }) =
+    "Invlid Velthuis input \"" ++ i ++ "\": " ++ m
   show (OtherError msg) =
     "Other Devanagari error: " ++ msg
 
