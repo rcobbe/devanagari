@@ -102,7 +102,8 @@ parseConsonant =
                 ("l", L),
                 ("v", V),
                 ("\"s", PalS),
-                (".s", S),
+                (".s", RetS),
+                ("s", S),
                 ("h", H)]
   <?> "Velthuis consonant"
 
