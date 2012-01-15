@@ -1,23 +1,47 @@
 module Text.Devanagari.Velthuis(toSegments, fromSegments)
 where
 
+import Control.Monad.Error
+
 import Text.Parsec.Char
 import Text.Parsec.Combinator
+import Text.Parsec.Error
 import Text.Parsec.Prim
 import Text.Parsec.String
 
 import Text.Devanagari.Exception
 import Text.Devanagari.Segments
 
-toSegments :: String -> Exceptional [Segment]
-toSegments = undefined
+-- XXX restrict {} to appear only before vowels?  Before i & u?
 
+-- | Converts a Velthuis string to a list of segments.  On error, throws
+-- 'BadVelthuis'.
+toSegments :: String -> Exceptional [Segment]
+toSegments s =
+  case parse velthuisWord "" s of
+    Left error ->
+      case (errorMessages error) of
+        [] -> throwError $ BadVelthuis s "unknown error"
+        (msg : _) -> throwError $ BadVelthuis s (messageString msg)
+    Right segments -> return segments
+
+-- | Parse a word containing at least one Velthuis segment, possibly with a
+-- trailing {}.
+velthuisWord :: GenParser Char st [Segment]
+velthuisWord =
+  do word <- many1 velthuisSegment
+     optional (string "{}")
+     return word
+  <?> "Velthuis word"
+
+-- | Parse a single Velthuis segment, with an optional {}.
 velthuisSegment :: GenParser Char st Segment
 velthuisSegment =
   do optionMaybe (string "{}")
      (parseVowel <|> parseConsonant)
   <?> "Velthuis segment"
 
+-- | Parse a Velthuis vowel, with optional visarga or anusvara.
 parseVowel :: GenParser Char st Segment
 parseVowel =
   do vowelCtor <- parseStrings [("aa", AA),
@@ -37,6 +61,7 @@ parseVowel =
      mod <- vowelModifier
      return $ vowelCtor mod
 
+-- | Parse a Velthuis vowel modifier (visarga or anusvara)
 vowelModifier :: GenParser Char st VowelMod
 vowelModifier =
   try (string ".h" >> return Visarga)
@@ -44,6 +69,7 @@ vowelModifier =
   <|> return NoMod
   <?> "Velthuis vowel modifier"
 
+-- | Parse a Velthuis consonant.
 parseConsonant :: GenParser Char st Segment
 parseConsonant =
   parseStrings [("kh", Kh),
@@ -80,6 +106,9 @@ parseConsonant =
                 ("h", H)]
   <?> "Velthuis consonant"
 
+-- | 'parseStrings strs' builds a parser that attempts to parse the strings in
+-- the domain of 'strs' in order; on success, returns the value corresponding
+-- to the string found.
 parseStrings :: [(String, a)] -> GenParser Char st a
 parseStrings [] = parserZero
 parseStrings ((str, val) : rest) =
