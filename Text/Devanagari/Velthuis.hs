@@ -2,6 +2,7 @@ module Text.Devanagari.Velthuis(toSegments, fromSegments)
 where
 
 import Control.Monad.Error
+import Data.List (foldl')
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
 
@@ -75,14 +76,51 @@ parseStrings ((str, val) : rest) =
   <|> parseStrings rest
 
 fromSegments :: [Segment] -> String
-fromSegments = undefined
+fromSegments [] = ""
+fromSegments [s] = segmentMap ! s
+fromSegments (s1 : rest@(s2 : _)) =
+  segmentMap ! s1
+  ++ vowelSep s1 s2
+  ++ fromSegments rest
 
 -- | Maps 'Segment's to corresponding Velthuis strings; does not account for
 -- vowel hiatus.
 segmentMap :: Map Segment String
 segmentMap =
-  Map.fromList (map invert consonantMapping)
+  let consonantMap = Map.fromList (map invert consonantMapping)
+      addVowel :: Map Segment String -> (String, VowelMod -> Segment)
+                  -> Map Segment String
+      addVowel m (str, vowelCtor) =
+        Map.insert (vowelCtor NoMod) str
+        (Map.insert (vowelCtor Visarga) (str ++ ".h")
+         (Map.insert (vowelCtor Anusvara) (str ++ ".m") m))
+  in foldl' addVowel consonantMap vowelMapping
   where invert (x, y) = (y, x)
+
+-- | Computes the vowel separator required between the given 'Segment's.
+-- Returns either "" or "{}".
+vowelSep :: Segment -> Segment -> String
+vowelSep (A NoMod) (A _) = "{}"
+vowelSep (A NoMod) (AA _) = "{}"
+vowelSep (A NoMod) (I _) = "{}"
+vowelSep (A NoMod) (II _) = "{}"
+vowelSep (A NoMod) (U _) = "{}"
+vowelSep (A NoMod) (UU _) = "{}"
+vowelSep (AA NoMod) (A _) = "{}"
+vowelSep (AA NoMod) (AA _) = "{}"
+vowelSep (AA NoMod) (I _) = "{}"
+vowelSep (AA NoMod) (II _) = "{}"
+vowelSep (AA NoMod) (U _) = "{}"
+vowelSep (AA NoMod) (UU _) = "{}"
+vowelSep (I NoMod) (I _) = "{}"
+vowelSep (I NoMod) (II _) = "{}"
+vowelSep (II NoMod) (I _) = "{}"
+vowelSep (II NoMod) (II _) = "{}"
+vowelSep (U NoMod) (U _) = "{}"
+vowelSep (U NoMod) (UU _) = "{}"
+vowelSep (UU NoMod) (U _) = "{}"
+vowelSep (UU NoMod) (UU _) = "{}"
+vowelSep _ _ = ""
 
 -- | Defines the mapping between Velthuis strings and consonant 'Segment's.
 -- Order is significant: no key (string) can be a prefix of a later key.

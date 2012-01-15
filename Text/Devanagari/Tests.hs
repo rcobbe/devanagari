@@ -1,6 +1,6 @@
 module Text.Devanagari.Tests(tests) where
 
-import Data.List (unzip3)
+import Data.List (unzip4)
 import Test.HUnit
 
 import Text.Devanagari.Exception
@@ -44,19 +44,20 @@ data TestSpec = TS { label :: String,
                      segments :: [Segment] }
 
 tests =
-  -- let (u2s, s2u, v2s, s2v) = unzip4 (map makeTest testSpecs)
-  let (u2s, s2u, v2s) = unzip3 (map makeTest testSpecs)
+  let (u2s, s2u, v2s, s2v) = unzip4 (map makeTest testSpecs)
   in "Text.Devanagari tests" ~:
      ["Unicode to Segments" ~: u2s,
       "Segments to Unicode" ~: s2u,
-      "Velthuis to Segments" ~: v2s]
+      "Velthuis to Segments" ~: v2s,
+      "Segments to Velthuis" ~: s2v]
      ++ [unicodeErrorTests]
 
-makeTest :: TestSpec -> (Test, Test, Test)
+makeTest :: TestSpec -> (Test, Test, Test, Test)
 makeTest (TS { label = l, unicode = u, segments = s, velthuis = v }) =
   (l ~: (U.toSegments u !?= s),
    l ~: (U.fromSegments s ~?= u),
-   l ~: (V.toSegments v !?= s))
+   l ~: (V.toSegments v !?= s),
+   l ~: (V.fromSegments s ~?= v))
 
 a :: Segment
 a = A NoMod
@@ -263,4 +264,8 @@ unicodeErrorTests =
 
 velthuisErrorTests =
   "invalid velthuis input" ~:
-  ["modifier after consonant" ~: assertBadVelthuis (V.toSegments "pat.h")]
+  ["modifier after medial consonant" ~:
+   assertBadVelthuis (V.toSegments "pat.ha"),
+
+   "modifier after final consonant" ~:
+   assertBadVelthuis (V.toSegments "pat.h")]
