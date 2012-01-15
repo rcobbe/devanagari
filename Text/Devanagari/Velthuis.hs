@@ -2,6 +2,8 @@ module Text.Devanagari.Velthuis(toSegments, fromSegments)
 where
 
 import Control.Monad.Error
+import Data.Map (Map, (!))
+import qualified Data.Map as Map
 
 import Text.Parsec.Char
 import Text.Parsec.Combinator
@@ -44,20 +46,7 @@ velthuisSegment =
 -- | Parse a Velthuis vowel, with optional visarga or anusvara.
 parseVowel :: GenParser Char st Segment
 parseVowel =
-  do vowelCtor <- parseStrings [("aa", AA),
-                                ("ai", AI),
-                                ("au", AU),
-                                ("ii", II),
-                                ("uu", UU),
-                                ("a", A),
-                                ("i", I),
-                                ("u", U),
-                                (".r", VocR),
-                                (".R", VocRR),
-                                (".l", VocL),
-                                (".L", VocLL),
-                                ("e", E),
-                                ("o", O)]
+  do vowelCtor <- parseStrings vowelMapping
      mod <- vowelModifier
      return $ vowelCtor mod
 
@@ -72,39 +61,7 @@ vowelModifier =
 -- | Parse a Velthuis consonant.
 parseConsonant :: GenParser Char st Segment
 parseConsonant =
-  parseStrings [("kh", Kh),
-                ("k", K),
-                ("gh", Gh),
-                ("g", G),
-                ("\"n", Ng),
-                ("ch", Ch),
-                ("c", C),
-                ("jh", Jh),
-                ("j", J),
-                ("~n", PalN),
-                (".th", RetTh),
-                (".t", RetT),
-                (".dh", RetDh),
-                (".d", RetD),
-                (".n", RetN),
-                ("th", Th),
-                ("t", T),
-                ("dh", Dh),
-                ("d", D),
-                ("n", N),
-                ("ph", Ph),
-                ("p", P),
-                ("bh", Bh),
-                ("b", B),
-                ("m", M),
-                ("y", Y),
-                ("r", R),
-                ("l", L),
-                ("v", V),
-                ("\"s", PalS),
-                (".s", RetS),
-                ("s", S),
-                ("h", H)]
+  parseStrings consonantMapping
   <?> "Velthuis consonant"
 
 -- | 'parseStrings strs' builds a parser that attempts to parse the strings in
@@ -119,6 +76,68 @@ parseStrings ((str, val) : rest) =
 
 fromSegments :: [Segment] -> String
 fromSegments = undefined
+
+-- | Maps 'Segment's to corresponding Velthuis strings; does not account for
+-- vowel hiatus.
+segmentMap :: Map Segment String
+segmentMap =
+  Map.fromList (map invert consonantMapping)
+  where invert (x, y) = (y, x)
+
+-- | Defines the mapping between Velthuis strings and consonant 'Segment's.
+-- Order is significant: no key (string) can be a prefix of a later key.
+consonantMapping :: [(String, Segment)]
+consonantMapping = [("kh", Kh),
+                    ("k", K),
+                    ("gh", Gh),
+                    ("g", G),
+                    ("\"n", Ng),
+                    ("ch", Ch),
+                    ("c", C),
+                    ("jh", Jh),
+                    ("j", J),
+                    ("~n", PalN),
+                    (".th", RetTh),
+                    (".t", RetT),
+                    (".dh", RetDh),
+                    (".d", RetD),
+                    (".n", RetN),
+                    ("th", Th),
+                    ("t", T),
+                    ("dh", Dh),
+                    ("d", D),
+                    ("n", N),
+                    ("ph", Ph),
+                    ("p", P),
+                    ("bh", Bh),
+                    ("b", B),
+                    ("m", M),
+                    ("y", Y),
+                    ("r", R),
+                    ("l", L),
+                    ("v", V),
+                    ("\"s", PalS),
+                    (".s", RetS),
+                    ("s", S),
+                    ("h", H)]
+
+-- | Defines the mapping between Velthuis strings and vowel 'Segment's.
+-- Order is significant: no key (string) can be a prefix of a later key.
+vowelMapping :: [(String, VowelMod -> Segment)]
+vowelMapping = [("aa", AA),
+                ("ai", AI),
+                ("au", AU),
+                ("ii", II),
+                ("uu", UU),
+                ("a", A),
+                ("i", I),
+                ("u", U),
+                (".r", VocR),
+                (".R", VocRR),
+                (".l", VocL),
+                (".L", VocLL),
+                ("e", E),
+                ("o", O)]
 
 {-
 
