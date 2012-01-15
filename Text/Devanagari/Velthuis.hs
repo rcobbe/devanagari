@@ -112,7 +112,7 @@ parseConsonant =
 parseStrings :: [(String, a)] -> GenParser Char st a
 parseStrings [] = parserZero
 parseStrings ((str, val) : rest) =
-  (do string str
+  (do try (string str)
       return val)
   <|> parseStrings rest
 
