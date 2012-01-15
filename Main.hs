@@ -23,6 +23,10 @@ import qualified System.Environment.UTF8 as Env
 -- Env.getArgs returns argv[1], argv[2], ...
 import System.IO
 
+import Control.Monad.Error
+
+import Text.Devanagari.Exception
+import Text.Devanagari.Segments (Segment)
 import qualified Text.Devanagari.Unicode as Unicode
 import qualified Text.Devanagari.Velthuis as Velthuis
 
@@ -31,22 +35,27 @@ main =
   do args <- Env.getArgs
      case args of
        ["--to-velthuis"] ->
-         mainLoop (Velthuis.fromSegments . Unicode.toSegments)
+         mainLoop Velthuis.fromSegments Unicode.toSegments
        ["--to-unicode"] ->
-         mainLoop (Unicode.fromSegments . Velthuis.toSegments)
+         mainLoop Unicode.fromSegments Velthuis.toSegments
        _ -> printUsage
 
 -- | The main loop of the conversion program.  Repeatedly reads lines from
 -- stdin, applies the given conversion function, and writes output as
 -- specified above, until detecting EOF on stdin.
-mainLoop :: (String -> String) -> IO ()
-mainLoop convert = repeatUntilEof (
+mainLoop :: (String -> Exceptional [Segment])
+            -> [Segment] -> String
+            -> IO ()
+mainLoop toSegments fromSegments = repeatUntilEof (
   do line <- getLine
-     result <- Exception.try (return (convert line))
-     case result of
-       Left exn -> putStrLn ("ERROR " ++ show exn)
-       Right val -> putStrLn ("OK " ++ val)
+     (do segments <- toSegments getLine
+         return (putStrLn ("OK " ++ (fromSegments segments))))
+       `catchError`
+       handler
   )
+  where handler :: Error -> IO ()
+        handler e =
+          putStrLn ("ERROR " ++ msg e)
 
 -- | Repeatedly executes the given action until it detects EOF on stdin.
 repeatUntilEof :: IO () -> IO ()
