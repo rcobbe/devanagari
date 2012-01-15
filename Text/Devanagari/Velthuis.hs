@@ -45,19 +45,19 @@ velthuisSegment =
 parseVowel :: GenParser Char st Segment
 parseVowel =
   do vowelCtor <- parseStrings [("aa", AA),
-                                ("a", A),
+                                ("ai", AI),
+                                ("au", AU),
                                 ("ii", II),
-                                ("i", I),
                                 ("uu", UU),
+                                ("a", A),
+                                ("i", I),
                                 ("u", U),
                                 (".r", VocR),
                                 (".R", VocRR),
                                 (".l", VocL),
                                 (".L", VocLL),
                                 ("e", E),
-                                ("ai", AI),
-                                ("o", O),
-                                ("au", AU)]
+                                ("o", O)]
      mod <- vowelModifier
      return $ vowelCtor mod
 
