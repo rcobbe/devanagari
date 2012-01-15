@@ -51,6 +51,7 @@ tests =
       "Velthuis to Segments" ~: v2s,
       "Segments to Velthuis" ~: s2v]
      ++ [unicodeErrorTests]
+     ++ [velthuisErrorTests]
 
 makeTest :: TestSpec -> (Test, Test, Test, Test)
 makeTest (TS { label = l, unicode = u, segments = s, velthuis = v }) =

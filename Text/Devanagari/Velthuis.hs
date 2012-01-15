@@ -34,6 +34,7 @@ velthuisWord :: GenParser Char st [Segment]
 velthuisWord =
   do word <- many1 velthuisSegment
      optional (string "{}")
+     eof                        -- make sure no bogus suffix
      return word
   <?> "Velthuis word"
 
