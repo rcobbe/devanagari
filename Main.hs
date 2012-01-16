@@ -22,6 +22,7 @@ import qualified Control.Exception as Exception
 import qualified System.Environment.UTF8 as Env
 -- Env.getArgs returns argv[1], argv[2], ...
 import System.IO
+import System.Exit
 
 import Control.Monad.Error
 
@@ -69,3 +70,4 @@ printUsage =
   -- XXX can we query for executable name instead of hardcoding?
   do putStrLn "devtrans: convert between Velthuis & Unicode representations"
      putStrLn "Usage: devtrans { --to-velthuis | --to-unicode }"
+     exitWith (ExitFailure -1)
