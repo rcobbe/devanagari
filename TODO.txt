@@ -1,0 +1,7 @@
+* Switch from Control.Monad.Error to exceptional; remove dependency on mtl
+  package.
+
+* Modernize package layout -- lib, exe, and add unit tests.
+
+* Fix compilation errors in executable (probably subsumed by switching to
+  my exceptional package).
