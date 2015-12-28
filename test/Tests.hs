@@ -1,4 +1,4 @@
-module Text.Devanagari.Tests(tests) where
+module Tests(tests) where
 
 import Data.List (unzip4)
 import Test.HUnit
