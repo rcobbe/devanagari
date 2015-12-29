@@ -1,7 +1,7 @@
 module Text.Devanagari.Velthuis(toSegments, fromSegments)
 where
 
-import Control.Monad.Error
+import Control.Monad.Except
 import Data.List (foldl')
 import Data.Map (Map, (!))
 import qualified Data.Map as Map

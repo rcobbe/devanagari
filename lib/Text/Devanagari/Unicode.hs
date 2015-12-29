@@ -14,7 +14,7 @@ module Text.Devanagari.Unicode(
   fromSegments)
 where
 
-import Control.Monad.Error
+import Control.Monad.Except
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
 
