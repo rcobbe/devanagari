@@ -1,3 +1,5 @@
 New in version 0.2:
 
-  - repackaged system as library and separate test cases
+  - repackaged system as separate library, executable, and test cases
+
+  - switched from Control.Monad.Error to rcc-exceptional

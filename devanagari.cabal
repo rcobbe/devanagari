@@ -1,5 +1,5 @@
 Name:           devanagari
-Version:        0.1
+Version:        0.2
 Cabal-Version:  >= 1.14
 Author:         Richard Cobbe
 Synopsis:       Defines multiple representations of Devanagari text and conversions between them
