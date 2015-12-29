@@ -1,9 +1,8 @@
--- | Defines the exception hierarchy that this library can throw, as well as
--- the specific representation of the 'Control.Monad.Error.Error' monad that we
--- use within the library.
-module Text.Devanagari.Exception where
+-- | Defines the exception hierarchy that this library can throw, plus some
+--   utility functions
+module Text.Devanagari.Exception(Error(..), userMessage) where
 
--- | Exception hierarchy.
+-- | Exception type.
 data Error
   -- | Used to signal incorrect Unicode input.
   = BadUnicode { input :: String, -- ^ the input that triggered the error
@@ -13,15 +12,11 @@ data Error
   | BadVelthuis { input :: String, -- ^ the input that triggered the error
                   msg :: String    -- ^ detailed error message
                 }
-  -- | Generic error required by the 'CMEC.Error' class.
-  | OtherError { msg :: String }
+    deriving (Show, Eq, Ord)
 
-instance Show Error where
-  show (BadUnicode { input = i, msg = m }) =
-    "Invalid Unicode input \"" ++ i ++ "\": " ++ m
-  show (BadVelthuis { input = i, msg = m }) =
-    "Invlid Velthuis input \"" ++ i ++ "\": " ++ m
-  show (OtherError msg) =
-    "Other Devanagari error: " ++ msg
-
-type Exceptional a = Either Error a
+-- | Produce a message for the exception, suitable for end users
+userMessage :: Error -> String
+userMessage (BadUnicode { input = i, msg = m }) =
+  "Invalid Unicode input \"" ++ i ++ "\": " ++ m
+userMessage (BadVelthuis { input = i, msg = m }) =
+  "Invalid Velthuis input \"" ++ i ++ "\": " ++ m

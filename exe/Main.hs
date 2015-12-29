@@ -17,14 +17,12 @@ whitespace.  Send EOF to complete.  Output has one of the following forms:
     new-line terminated string describing the error condition.
 -}
 
-import qualified Control.Exception as Exception
-
-import qualified System.Environment.UTF8 as Env
+import qualified System.Environment as Env
 -- Env.getArgs returns argv[1], argv[2], ...
 import System.IO
 import System.Exit
 
-import Control.Monad.Error
+import qualified Control.Exceptional as CE
 
 import Text.Devanagari.Exception
 import Text.Devanagari.Segments (Segment)
@@ -36,27 +34,39 @@ main =
   do args <- Env.getArgs
      case args of
        ["--to-velthuis"] ->
-         mainLoop Velthuis.fromSegments Unicode.toSegments
+         mainLoop Unicode.toSegments Velthuis.fromSegments
        ["--to-unicode"] ->
-         mainLoop Unicode.fromSegments Velthuis.toSegments
+         mainLoop Velthuis.toSegments Unicode.fromSegments
        _ -> printUsage
 
 -- | The main loop of the conversion program.  Repeatedly reads lines from
 -- stdin, applies the given conversion function, and writes output as
 -- specified above, until detecting EOF on stdin.
-mainLoop :: (String -> Exceptional [Segment])
-            -> [Segment] -> String
+mainLoop :: (String -> CE.Exceptional Error [Segment])
+            -> ([Segment] -> String)
             -> IO ()
-mainLoop toSegments fromSegments = repeatUntilEof (
-  do line <- getLine
-     (do segments <- toSegments getLine
-         return (putStrLn ("OK " ++ (fromSegments segments))))
-       `catchError`
-       handler
-  )
-  where handler :: Error -> IO ()
-        handler e =
-          putStrLn ("ERROR " ++ msg e)
+mainLoop toSegments fromSegments =
+  repeatUntilEof
+    (do line <- getLine
+        Main.print (eval toSegments fromSegments line))
+
+data Result = OK String
+            | Error String
+
+-- | Evaluate a single line; returns an IO action that either
+eval :: (String -> CE.Exceptional Error [Segment])
+         -> ([Segment] -> String)
+         -> String
+         -> Result
+eval toSegments fromSegments line =
+  do segs <- toSegments line
+     return $ OK (fromSegments segs)
+  `CE.catchAll`
+    (\e -> Error $ userMessage e)
+
+print :: Result -> IO ()
+print (OK output) = putStrLn ("OK " ++ output)
+print (Error msg) = putStrLn ("ERROR " ++ msg)
 
 -- | Repeatedly executes the given action until it detects EOF on stdin.
 repeatUntilEof :: IO () -> IO ()
@@ -70,4 +80,4 @@ printUsage =
   -- XXX can we query for executable name instead of hardcoding?
   do putStrLn "devtrans: convert between Velthuis & Unicode representations"
      putStrLn "Usage: devtrans { --to-velthuis | --to-unicode }"
-     exitWith (ExitFailure -1)
+     exitWith (ExitFailure (-1))

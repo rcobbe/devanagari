@@ -1,7 +1,6 @@
 module Text.Devanagari.Velthuis(toSegments, fromSegments)
 where
 
-import Control.Monad.Except
 import Data.List (foldl')
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
@@ -12,6 +11,8 @@ import Text.Parsec.Error
 import Text.Parsec.Prim
 import Text.Parsec.String
 
+import qualified Control.Exceptional as CE
+
 import Text.Devanagari.Exception
 import Text.Devanagari.Segments
 
@@ -19,13 +20,13 @@ import Text.Devanagari.Segments
 
 -- | Converts a Velthuis string to a list of segments.  On error, throws
 -- 'BadVelthuis'.
-toSegments :: String -> Exceptional [Segment]
+toSegments :: String -> CE.Exceptional Error [Segment]
 toSegments s =
   case parse velthuisWord "" s of
     Left error ->
       case (errorMessages error) of
-        [] -> throwError $ BadVelthuis s "unknown error"
-        (msg : _) -> throwError $ BadVelthuis s (messageString msg)
+        [] -> CE.throw $ BadVelthuis s "unknown error"
+        (msg : _) -> CE.throw $ BadVelthuis s (messageString msg)
     Right segments -> return segments
 
 -- | Parse a word containing at least one Velthuis segment, possibly with a

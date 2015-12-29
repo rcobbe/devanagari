@@ -3,6 +3,8 @@ module Tests(tests) where
 import Data.List (unzip4)
 import Test.HUnit
 
+import qualified Control.Exceptional as CE
+import qualified Control.Exceptional.HUnit as CEH
 import Text.Devanagari.Exception
 import Text.Devanagari.Segments
 import qualified Text.Devanagari.Unicode as U
@@ -16,27 +18,24 @@ import qualified Text.Devanagari.Exception as E
 
 -- | Test case that asserts that the two arguments are equal and evaluating the
 -- left side does not throw a Devanagari exception.
-(!?=) :: (Eq a, Show a) => Exceptional a -> a -> Assertion
-(Left exn) !?= _ =
-  assertFailure ("caught exception: " ++ show exn)
-(Right val) !?= expected =
-  val @?= expected
+(!?=) :: (Eq a, Show a) => CE.Exceptional Error a -> a -> Assertion
+exnlComp !?= expected = CEH.assertNoExn expected exnlComp
 
 -- | Asserts that the evaluation of a form throws a 'BadUnicode' exception.
-assertBadUnicode :: (Show a) => Exceptional a -> Assertion
-assertBadUnicode (Left (BadUnicode _ _)) = return ()
-assertBadUnicode (Left exn) =
-  assertFailure ("expected BadUnicode exception; caught " ++ show exn)
-assertBadUnicode (Right val) =
-  assertFailure ("expected BadUnicode exception; got result " ++ show val)
+assertBadUnicode :: (Show a) => CE.Exceptional Error a -> Assertion
+assertBadUnicode = CEH.assertExn' isBadUnicode
+  where isBadUnicode :: Error -> Assertion
+        isBadUnicode (BadUnicode _ _) = return ()
+        isBadUnicode e                =
+          assertFailure ("Expected BadUnicode exn; got " ++ show e)
 
 -- | Asserts that the evaluation of a form throws a 'BadVelthuis' exception.
-assertBadVelthuis :: (Show a) => Exceptional a -> Assertion
-assertBadVelthuis (Left (BadVelthuis _ _)) = return ()
-assertBadVelthuis (Left exn) =
-  assertFailure ("expected BadVelthuis exception; caught " ++ show exn)
-assertBadVelthuis (Right val) =
-  assertFailure ("expected BadVelthuis exception; got result " ++ show val)
+assertBadVelthuis :: (Show a) => CE.Exceptional Error a -> Assertion
+assertBadVelthuis = CEH.assertExn' isBadVelthuis
+  where isBadVelthuis :: Error -> Assertion
+        isBadVelthuis (BadVelthuis _ _) = return ()
+        isBadVelthuis e                 =
+          assertFailure ("Expected BadVelthuis exn; got " ++ show e)
 
 data TestSpec = TS { label :: String,
                      unicode :: String,
