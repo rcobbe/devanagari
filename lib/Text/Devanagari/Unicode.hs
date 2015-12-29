@@ -41,8 +41,8 @@ import Text.Devanagari.Segments
 -- In the Unicode representation, however, initial and medial vowels have
 -- separate representations.  Consonants possess an inherent short A,
 -- which is cancelled whenever the consonant is followed by a virama (U+094D)
--- or a medial vowel.  So, we can divide the Devanagari code points used for
--- Sanskrit into the following classes:
+-- or a medial vowel.  So, we can divide the Unicode code points used for
+-- Devanagari/Sanskrit into the following classes:
 --
 -- * initial vowels
 --
@@ -103,7 +103,7 @@ import Text.Devanagari.Segments
 -- modification of the grammar above that does not support hiatus follows:
 --
 -- @ Word ::= InitialVowelMod Syllable* (Consonant Virama)*
---        | Syllable? (Consonant Virama)*
+--        | Syllable+ (Consonant Virama)*
 -- Syllable ::= (Consonant Virama)* Consonant MedialVowel? VowelMod?@
 --
 -- with the remaining productions as in the original grammar.
