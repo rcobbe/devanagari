@@ -11,7 +11,7 @@ import Text.Parsec.Error
 import Text.Parsec.Prim
 import Text.Parsec.String
 
-import qualified Control.Exceptional as CE
+import Control.Monad.Trans.Except (Except, throwE)
 
 import Text.Devanagari.Exception
 import Text.Devanagari.Segments
@@ -20,13 +20,13 @@ import Text.Devanagari.Segments
 
 -- | Converts a Velthuis string to a list of segments.  On error, throws
 -- 'BadVelthuis'.
-toSegments :: String -> CE.Exceptional Error [Segment]
+toSegments :: String -> Except Error [Segment]
 toSegments s =
   case parse velthuisWord "" s of
     Left error ->
       case (errorMessages error) of
-        [] -> CE.throw $ BadVelthuis s "unknown error"
-        (msg : _) -> CE.throw $ BadVelthuis s (messageString msg)
+        [] -> throwE $ BadVelthuis s "unknown error"
+        (msg : _) -> throwE $ BadVelthuis s (messageString msg)
     Right segments -> return segments
 
 -- | Parse a word containing at least one Velthuis segment, possibly with a

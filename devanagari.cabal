@@ -19,8 +19,7 @@ Executable devanagari
   Ghc-options: -fwarn-incomplete-patterns -fwarn-unrecognised-pragmas
   Build-Depends:
     base == 4.8.*,
-    mtl == 2.2.*,
-    rcc-exceptional == 0.6.*,
+    transformers == 0.4.*,
     devanagari
                 
 Library
@@ -29,10 +28,9 @@ Library
   Ghc-options: -fwarn-incomplete-patterns -fwarn-unrecognised-pragmas
   Build-Depends:
     base == 4.8.*,
-    mtl == 2.2.*,
     parsec == 3.1.*,
     containers == 0.5.*,
-    rcc-exceptional == 0.6.*
+    transformers == 0.4.*
   Exposed-Modules:
     Text.Devanagari.Exception,
     Text.Devanagari.Segments,
@@ -47,9 +45,10 @@ Test-Suite devanagari-tests
   Ghc-options: -fwarn-incomplete-patterns -fwarn-unrecognised-pragmas
   build-depends:
     devanagari,
-    rcc-exceptional == 0.6.*,
     base == 4.8.*,
-    HUnit == 1.5.*
+    HUnit == 1.6.*,
+    test-utils == 1.6.*,
+    transformers == 0.4.*
 
 -- Executable devtrans
 --   Main-Is:          Main.hs

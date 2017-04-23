@@ -22,7 +22,7 @@ import qualified System.Environment as Env
 import System.IO
 import System.Exit
 
-import qualified Control.Exceptional as CE
+import Control.Monad.Trans.Except (Except, runExcept)
 
 import Text.Devanagari.Exception
 import Text.Devanagari.Segments (Segment)
@@ -42,7 +42,7 @@ main =
 -- | The main loop of the conversion program.  Repeatedly reads lines from
 -- stdin, applies the given conversion function, and writes output as
 -- specified above, until detecting EOF on stdin.
-mainLoop :: (String -> CE.Exceptional Error [Segment])
+mainLoop :: (String -> Except Error [Segment])
             -> ([Segment] -> String)
             -> IO ()
 mainLoop toSegments fromSegments =
@@ -54,15 +54,14 @@ data Result = OK String
             | Error String
 
 -- | Evaluate a single line; returns an IO action that either
-eval :: (String -> CE.Exceptional Error [Segment])
+eval :: (String -> Except Error [Segment])
          -> ([Segment] -> String)
          -> String
          -> Result
 eval toSegments fromSegments line =
-  do segs <- toSegments line
-     return $ OK (fromSegments segs)
-  `CE.catchAll`
-    (\e -> Error $ userMessage e)
+  case runExcept (toSegments line >>= return . fromSegments) of
+    Left exn  -> Error $ userMessage exn
+    Right val -> OK val
 
 print :: Result -> IO ()
 print (OK output) = putStrLn ("OK " ++ output)

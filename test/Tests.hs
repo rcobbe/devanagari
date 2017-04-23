@@ -3,8 +3,10 @@ module Tests(tests) where
 import Data.List (unzip4)
 import Test.HUnit
 
-import qualified Control.Exceptional as CE
-import qualified Control.Exceptional.HUnit as CEH
+import Control.Monad.Trans.Except (Except)
+
+import qualified Test.Utils as TU
+
 import Text.Devanagari.Exception
 import Text.Devanagari.Segments
 import qualified Text.Devanagari.Unicode as U
@@ -18,20 +20,20 @@ import qualified Text.Devanagari.Exception as E
 
 -- | Test case that asserts that the two arguments are equal and evaluating the
 -- left side does not throw a Devanagari exception.
-(!?=) :: (Eq a, Show a) => CE.Exceptional Error a -> a -> Assertion
-exnlComp !?= expected = CEH.assertNoExn expected exnlComp
+(!?=) :: (Eq a, Show a) => Except Error a -> a -> Assertion
+exnlComp !?= expected = TU.assertNoExcept expected exnlComp
 
 -- | Asserts that the evaluation of a form throws a 'BadUnicode' exception.
-assertBadUnicode :: (Show a) => CE.Exceptional Error a -> Assertion
-assertBadUnicode = CEH.assertExn' isBadUnicode
+assertBadUnicode :: (Show a) => Except Error a -> Assertion
+assertBadUnicode = TU.assertExcept' isBadUnicode
   where isBadUnicode :: Error -> Assertion
         isBadUnicode (BadUnicode _ _) = return ()
         isBadUnicode e                =
           assertFailure ("Expected BadUnicode exn; got " ++ show e)
 
 -- | Asserts that the evaluation of a form throws a 'BadVelthuis' exception.
-assertBadVelthuis :: (Show a) => CE.Exceptional Error a -> Assertion
-assertBadVelthuis = CEH.assertExn' isBadVelthuis
+assertBadVelthuis :: (Show a) => Except Error a -> Assertion
+assertBadVelthuis = TU.assertExcept' isBadVelthuis
   where isBadVelthuis :: Error -> Assertion
         isBadVelthuis (BadVelthuis _ _) = return ()
         isBadVelthuis e                 =

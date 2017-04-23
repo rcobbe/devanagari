@@ -14,6 +14,9 @@ module Text.Devanagari.Unicode(
   fromSegments)
 where
 
+import Control.Monad.Trans.Except (Except)
+import qualified Control.Monad.Trans.Except as CMTE
+
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
 
@@ -23,8 +26,6 @@ import Text.Parsec.Error
 import Text.Parsec.Pos
 import Text.Parsec.Prim
 import Text.Parsec.String
-
-import qualified Control.Exceptional as CE
 
 import qualified Text.Devanagari.Exception as TDE
 import Text.Devanagari.Segments
@@ -111,13 +112,13 @@ import Text.Devanagari.Segments
 
 -- | Converts a Unicode string to a list of segments.  On error, throws
 -- 'TDE.BadUnicode'.
-toSegments :: String -> CE.Exceptional TDE.Error [Segment]
+toSegments :: String -> Except TDE.Error [Segment]
 toSegments s =
   case parse unicode "" s of
     Left error ->
       case (errorMessages error) of
-        [] -> CE.throw $ TDE.BadUnicode s "unknown error"
-        (msg : _) -> CE.throw $ TDE.BadUnicode s (messageString msg)
+        [] -> CMTE.throwE $ TDE.BadUnicode s "unknown error"
+        (msg : _) -> CMTE.throwE $ TDE.BadUnicode s (messageString msg)
     Right segments -> return segments
 
 -- | Parse a single unicode word into segments.  If the word does not start
