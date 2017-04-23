@@ -1,6 +1,0 @@
-~$
-^dist/
-^\.cabal-sandbox/
-^docs/.*\.pdf$
-^docs/.*\.log$
-^docs/.*\.aux$
