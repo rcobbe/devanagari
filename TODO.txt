@@ -1,6 +1,0 @@
-* Fix compilation errors in executable (probably subsumed by switching to
-  my exceptional package).
-
-* Re-enable executable, with modern package layout (exe directory)
-
-* Improve unit tests
