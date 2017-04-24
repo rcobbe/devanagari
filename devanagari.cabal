@@ -22,7 +22,7 @@ Extra-Source-Files: HISTORY
 License:        Apache-2.0
 License-File:   LICENSE
 Copyright:      (c) 2011 Richard Cobbe
-Maintainer:     cobbe@ccs.neu.edu
+Maintainer:     rcobbe@rcobbe.net
 Stability:      alpha
 Category:       Data
 Description:    This package provides a library that exports multiple representations of Devanagari text (internal, Unicode, modified Velthuis) and converts back and converts back and forth between them.  The package also includes a binary that performs the conversion for use with other languages.
