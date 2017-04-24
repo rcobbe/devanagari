@@ -383,7 +383,7 @@ doubleDanda = '\x0965'
 -- InitVowelWithMod ::= VowelSegment VowelMod?
 -- MedialVowelWithMod ::= VowelSegment VowelMod?
 -- Consonant ::= ConsonantSegment
--- ConsonantClusterSgment ::= Consonant not followed by a VowelSegment
+-- ConsonantClusterSegment ::= Consonant not followed by a VowelSegment
 -- VowelMod ::= Anusvara | Visarga@
 --
 -- Although @InitVowelWithMod@ and @MedialVowelWithMod@ describe identical
